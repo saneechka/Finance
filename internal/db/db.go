@@ -38,3 +38,22 @@ func SaveDeposit(d models.Deposit) error {
 		d.ClientID, d.BankName, d.Amount, d.Interest, currentTime)
 	return err
 }
+
+func DeleteDeposit(clientID int64, bankName string) error {
+    result, err := DB.Exec(`DELETE FROM deposits WHERE client_id = ? AND bank_name = ?`, 
+        clientID, bankName)
+    if err != nil {
+        return err
+    }
+    
+    affected, err := result.RowsAffected()
+    if err != nil {
+        return err
+    }
+    if affected == 0 {
+        return sql.ErrNoRows
+    }
+    return nil
+}
+
+
