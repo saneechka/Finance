@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"net/http"
 
-	"finance/internal/db"
+	"finance/internal/storage"
 	"finance/internal/models"
 
 	"github.com/gin-gonic/gin"

@@ -8,3 +8,4 @@ ClientID int64 `json:"client_id"`
 	Interest float64 `json:"interest"`
 	CreateData string `json:"create_data"`
 }
+

@@ -7,7 +7,7 @@ import (
 
 	"finance/internal/models"
 
-	_ "github.com/mattn/go-sqlite3"
+	_"github.com/mattn/go-sqlite3"
 )
 
 var DB *sql.DB
@@ -27,6 +27,7 @@ func init() {
 		interest REAL NOT NULL,
 		create_data TEXT NOT NULL
 	);`
+
 	if _, err := DB.Exec(createTableSQL); err != nil {
 		log.Fatal(err)
 	}
