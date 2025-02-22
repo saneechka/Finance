@@ -2,72 +2,104 @@
 <html>
 <head>
     <title>Finance Management</title>
-    <style>
-        body { max-width: 800px; margin: 0 auto; padding: 20px; font-family: Arial; }
-        .card { border: 1px solid #ccc; padding: 20px; margin: 10px 0; border-radius: 5px; }
-        .response { background: #f5f5f5; padding: 10px; margin-top: 10px; }
-        button { padding: 5px 10px; margin: 5px; }
-        input { padding: 5px; margin: 5px; }
-    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
-    <h1>Finance Management System</h1>
+    <div class="container">
+        <h1>Finance Management System</h1>
 
-    <div class="card">
-        <h3>Create Deposit</h3>
-        <input type="number" id="create_client_id" placeholder="Client ID">
-        <input type="text" id="create_bank_name" placeholder="Bank Name">
-        <input type="number" id="create_amount" placeholder="Amount">
-        <input type="number" id="create_interest" placeholder="Interest Rate">
-        <button onclick="createDeposit()">Create</button>
-        <div id="create_response" class="response"></div>
-    </div>
+        <!-- Create Deposit -->
+        <div class="card">
+            <h3>Create Deposit</h3>
+            <div class="input-group">
+                <input type="number" id="create_client_id" placeholder="Client ID">
+                <input type="text" id="create_bank_name" placeholder="Bank Name">
+            </div>
+            <div class="input-group">
+                <input type="number" id="create_amount" placeholder="Amount">
+                <input type="number" id="create_interest" step="0.1" placeholder="Interest Rate (%)">
+            </div>
+            <button onclick="createDeposit()">Create Deposit</button>
+            <div id="create_response" class="response"></div>
+        </div>
 
-    <div class="card">
-        <h3>Transfer Between Accounts</h3>
-        <input type="number" id="transfer_client_id" placeholder="Client ID">
-        <input type="text" id="transfer_bank_name" placeholder="Bank Name">
-        <input type="number" id="from_account" placeholder="From Account ID">
-        <input type="number" id="to_account" placeholder="To Account ID">
-        <input type="number" id="transfer_amount" placeholder="Amount">
-        <button onclick="transferBetweenAccounts()">Transfer</button>
-        <div id="transfer_response" class="response"></div>
-    </div>
+        <!-- Transfer Between Accounts -->
+        <div class="card">
+            <h3>Transfer Between Accounts</h3>
+            <div class="input-group">
+                <input type="number" id="transfer_client_id" placeholder="Client ID">
+                <input type="text" id="transfer_bank_name" placeholder="Bank Name">
+            </div>
+            <div class="input-group">
+                <input type="number" id="from_account" placeholder="From Account ID">
+                <input type="number" id="to_account" placeholder="To Account ID">
+                <input type="number" id="transfer_amount" placeholder="Amount">
+            </div>
+            <button onclick="transferBetweenAccounts()">Transfer Money</button>
+            <div id="transfer_response" class="response"></div>
+        </div>
 
-    <div class="card">
-        <h3>Freeze Deposit</h3>
-        <input type="number" id="freeze_client_id" placeholder="Client ID">
-        <input type="text" id="freeze_bank_name" placeholder="Bank Name">
-        <input type="number" id="freeze_deposit_id" placeholder="Deposit ID">
-        <input type="number" id="freeze_duration" placeholder="Duration (hours)">
-        <button onclick="freezeDeposit()">Freeze</button>
-        <div id="freeze_response" class="response"></div>
-    </div>
+        <!-- Freeze Deposit -->
+        <div class="card">
+            <h3>Freeze Deposit</h3>
+            <div class="input-group">
+                <input type="number" id="freeze_client_id" placeholder="Client ID">
+                <input type="text" id="freeze_bank_name" placeholder="Bank Name">
+            </div>
+            <div class="input-group">
+                <input type="number" id="freeze_deposit_id" placeholder="Deposit ID">
+                <input type="number" id="freeze_duration" placeholder="Duration (hours)">
+            </div>
+            <button onclick="freezeDeposit()">Freeze</button>
+            <div id="freeze_response" class="response"></div>
+        </div>
 
-    <div class="card">
-        <h3>Block Deposit</h3>
-        <input type="number" id="block_client_id" placeholder="Client ID">
-        <input type="text" id="block_bank_name" placeholder="Bank Name">
-        <input type="number" id="block_deposit_id" placeholder="Deposit ID">
-        <button onclick="blockDeposit()">Block</button>
-        <div id="block_response" class="response"></div>
-    </div>
+        <!-- Block Deposit -->
+        <div class="card">
+            <h3>Block Deposit</h3>
+            <div class="input-group">
+                <input type="number" id="block_client_id" placeholder="Client ID">
+                <input type="text" id="block_bank_name" placeholder="Bank Name">
+            </div>
+            <div class="input-group">
+                <input type="number" id="block_deposit_id" placeholder="Deposit ID">
+            </div>
+            <button onclick="blockDeposit()">Block</button>
+            <div id="block_response" class="response"></div>
+        </div>
 
-    <div class="card">
-        <h3>Unblock Deposit</h3>
-        <input type="number" id="unblock_client_id" placeholder="Client ID">
-        <input type="text" id="unblock_bank_name" placeholder="Bank Name">
-        <input type="number" id="unblock_deposit_id" placeholder="Deposit ID">
-        <button onclick="unblockDeposit()">Unblock</button>
-        <div id="unblock_response" class="response"></div>
-    </div>
+        <!-- Unblock Deposit -->
+        <div class="card">
+            <h3>Unblock Deposit</h3>
+            <div class="input-group">
+                <input type="number" id="unblock_client_id" placeholder="Client ID">
+                <input type="text" id="unblock_bank_name" placeholder="Bank Name">
+            </div>
+            <div class="input-group">
+                <input type="number" id="unblock_deposit_id" placeholder="Deposit ID">
+            </div>
+            <button onclick="unblockDeposit()">Unblock</button>
+            <div id="unblock_response" class="response"></div>
+        </div>
 
-    <div class="card">
-        <h3>Delete Deposit</h3>
-        <input type="number" id="delete_client_id" placeholder="Client ID">
-        <input type="text" id="delete_bank_name" placeholder="Bank Name">
-        <button onclick="deleteDeposit()">Delete</button>
-        <div id="delete_response" class="response"></div>
+        <!-- Delete Deposit -->
+        <div class="card">
+            <h3>Delete Deposit</h3>
+            <div class="input-group">
+                <input type="number" id="delete_client_id" placeholder="Client ID">
+                <input type="text" id="delete_bank_name" placeholder="Bank Name">
+            </div>
+            <button onclick="deleteDeposit()">Delete</button>
+            <div id="delete_response" class="response"></div>
+        </div>
+
+        <!-- Request Log -->
+        <div class="card" id="request-log">
+            <h3>Request Log</h3>
+            <div id="request-log-entries"></div>
+        </div>
     </div>
 
     <script src="/static/app.js"></script>
