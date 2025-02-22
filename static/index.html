@@ -44,6 +44,32 @@
         <div id="freeze_response" class="response"></div>
     </div>
 
+    <div class="card">
+        <h3>Block Deposit</h3>
+        <input type="number" id="block_client_id" placeholder="Client ID">
+        <input type="text" id="block_bank_name" placeholder="Bank Name">
+        <input type="number" id="block_deposit_id" placeholder="Deposit ID">
+        <button onclick="blockDeposit()">Block</button>
+        <div id="block_response" class="response"></div>
+    </div>
+
+    <div class="card">
+        <h3>Unblock Deposit</h3>
+        <input type="number" id="unblock_client_id" placeholder="Client ID">
+        <input type="text" id="unblock_bank_name" placeholder="Bank Name">
+        <input type="number" id="unblock_deposit_id" placeholder="Deposit ID">
+        <button onclick="unblockDeposit()">Unblock</button>
+        <div id="unblock_response" class="response"></div>
+    </div>
+
+    <div class="card">
+        <h3>Delete Deposit</h3>
+        <input type="number" id="delete_client_id" placeholder="Client ID">
+        <input type="text" id="delete_bank_name" placeholder="Bank Name">
+        <button onclick="deleteDeposit()">Delete</button>
+        <div id="delete_response" class="response"></div>
+    </div>
+
     <script src="/static/app.js"></script>
 </body>
 </html>

@@ -7,6 +7,6 @@ type Deposit struct {
 	Amount         float64 `json:"amount"`
 	Interest       float64 `json:"interest"`
 	CreateData     string  `json:"create_data"`
-	FreezeDuration int64   `json:"freeze_duration"` // Duration in hours
+	FreezeDuration int64   `json:"freeze_duration"` 
 	UnfreezeTime   string  `json:"unfreeze_time"`
 }
