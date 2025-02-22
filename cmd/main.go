@@ -11,6 +11,9 @@ func main() {
 	r.GET("/health", handlers.HealthCheck)
 	r.POST("/deposit/create", handlers.CreateDeposit)
 	r.POST("/deposit/transfer", handlers.TransferBetweenAccounts)
+	r.POST("/deposit/block", handlers.BlockDeposit)
+	r.POST("/deposit/unblock", handlers.UnblockDeposit)
+	r.POST("/deposit/freeze", handlers.FreezeDeposit)
 	r.DELETE("/deposit/delete", handlers.DeleteDeposit)
 
 	r.Run(":8085")

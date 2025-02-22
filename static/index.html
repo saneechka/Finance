@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Finance Management</title>
+    <style>
+        body { max-width: 800px; margin: 0 auto; padding: 20px; font-family: Arial; }
+        .card { border: 1px solid #ccc; padding: 20px; margin: 10px 0; border-radius: 5px; }
+        .response { background: #f5f5f5; padding: 10px; margin-top: 10px; }
+        button { padding: 5px 10px; margin: 5px; }
+        input { padding: 5px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Finance Management System</h1>
+
+    <div class="card">
+        <h3>Create Deposit</h3>
+        <input type="number" id="create_client_id" placeholder="Client ID">
+        <input type="text" id="create_bank_name" placeholder="Bank Name">
+        <input type="number" id="create_amount" placeholder="Amount">
+        <input type="number" id="create_interest" placeholder="Interest Rate">
+        <button onclick="createDeposit()">Create</button>
+        <div id="create_response" class="response"></div>
+    </div>
+
+    <div class="card">
+        <h3>Transfer Between Accounts</h3>
+        <input type="number" id="transfer_client_id" placeholder="Client ID">
+        <input type="text" id="transfer_bank_name" placeholder="Bank Name">
+        <input type="number" id="from_account" placeholder="From Account ID">
+        <input type="number" id="to_account" placeholder="To Account ID">
+        <input type="number" id="transfer_amount" placeholder="Amount">
+        <button onclick="transferBetweenAccounts()">Transfer</button>
+        <div id="transfer_response" class="response"></div>
+    </div>
+
+    <div class="card">
+        <h3>Freeze Deposit</h3>
+        <input type="number" id="freeze_client_id" placeholder="Client ID">
+        <input type="text" id="freeze_bank_name" placeholder="Bank Name">
+        <input type="number" id="freeze_deposit_id" placeholder="Deposit ID">
+        <input type="number" id="freeze_duration" placeholder="Duration (hours)">
+        <button onclick="freezeDeposit()">Freeze</button>
+        <div id="freeze_response" class="response"></div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

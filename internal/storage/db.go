@@ -26,7 +26,9 @@ func init() {
 		bank_name TEXT NOT NULL,
 		amount REAL NOT NULL,
 		interest REAL NOT NULL,
-		create_data TEXT NOT NULL
+		create_data TEXT NOT NULL,
+		is_blocked INTEGER DEFAULT 0,
+		unfreeze_time TEXT
 	);`
 
 	if _, err := DB.Exec(createTableSQL); err != nil {
@@ -71,6 +73,111 @@ func DeleteDeposit(clientID int64, bankName string) error {
 	return nil
 }
 
+func BlockDeposit(clientID int64, bankName string, depositID int64) error {
+
+	var isBlocked int
+	err := DB.QueryRow(`SELECT is_blocked FROM deposits 
+		WHERE client_id = ? AND bank_name = ? AND id = ?`,
+		clientID, bankName, depositID).Scan(&isBlocked)
+
+	if err == sql.ErrNoRows {
+		return fmt.Errorf("deposit not found")
+	}
+	if err != nil {
+		return fmt.Errorf("database error: %v", err)
+	}
+	if isBlocked == 1 {
+		return fmt.Errorf("deposit is already blocked")
+	}
+
+	// Now try to block the deposit
+	result, err := DB.Exec(`UPDATE deposits SET is_blocked = 1 
+		WHERE client_id = ? AND bank_name = ? AND id = ?`,
+		clientID, bankName, depositID)
+	if err != nil {
+		return fmt.Errorf("failed to update deposit: %v", err)
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get affected rows: %v", err)
+	}
+	if affected == 0 {
+		return fmt.Errorf("no deposit was updated")
+	}
+
+	return nil
+}
+
+func UnblockDeposit(clientID int64, bankName string, depositID int64) error {
+	result, err := DB.Exec(`UPDATE deposits SET is_blocked = 0 
+		WHERE client_id = ? AND bank_name = ? AND id = ? AND is_blocked = 1`,
+		clientID, bankName, depositID)
+	if err != nil {
+		return err
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func FreezeDeposit(clientID int64, bankName string, depositID int64, duration int64) error {
+	
+	var exists bool
+	err := DB.QueryRow(`SELECT EXISTS(
+		SELECT 1 FROM deposits 
+		WHERE id = ? AND client_id = ? AND bank_name = ?
+	)`, depositID, clientID, bankName).Scan(&exists)
+
+	if err != nil {
+		return fmt.Errorf("database error: %v", err)
+	}
+
+	if !exists {
+		return fmt.Errorf("deposit not found: id=%d, client=%d, bank=%s",
+			depositID, clientID, bankName)
+	}
+
+
+	var isBlocked int
+	err = DB.QueryRow(`SELECT is_blocked FROM deposits 
+		WHERE id = ? AND client_id = ? AND bank_name = ?`,
+		depositID, clientID, bankName).Scan(&isBlocked)
+
+	if err != nil {
+		return fmt.Errorf("database error: %v", err)
+	}
+
+	if isBlocked == 1 {
+		return fmt.Errorf("deposit is already blocked")
+	}
+
+	
+	unfreezeTime := time.Now().Add(time.Hour * time.Duration(duration))
+	result, err := DB.Exec(`UPDATE deposits 
+		SET is_blocked = 1, unfreeze_time = ? 
+		WHERE id = ? AND client_id = ? AND bank_name = ?`,
+		unfreezeTime.Format("2006-01-02 15:04:05"),
+		depositID, clientID, bankName)
+
+	if err != nil {
+		return fmt.Errorf("failed to freeze deposit: %v", err)
+	}
+
+	affected, _ := result.RowsAffected()
+	if affected == 0 {
+		return fmt.Errorf("failed to update deposit")
+	}
+
+	return nil
+}
+
 func TransferBetweenAccounts(t models.Transfer) error {
 	tx, err := DB.Begin()
 	if err != nil {
@@ -78,7 +185,17 @@ func TransferBetweenAccounts(t models.Transfer) error {
 	}
 	defer tx.Rollback()
 
-	
+	// Auto unfreeze check
+	currentTime := time.Now().Format("2006-01-02 15:04:05")
+	_, err = tx.Exec(`UPDATE deposits 
+		SET is_blocked = 0, unfreeze_time = NULL 
+		WHERE is_blocked = 1 
+		AND unfreeze_time IS NOT NULL 
+		AND unfreeze_time <= ?`, currentTime)
+	if err != nil {
+		return fmt.Errorf("failed to check frozen deposits: %v", err)
+	}
+
 	var count int
 	err = tx.QueryRow(`SELECT COUNT(*) FROM deposits 
 		WHERE client_id = ? AND bank_name = ? 
@@ -91,7 +208,18 @@ func TransferBetweenAccounts(t models.Transfer) error {
 		return sql.ErrNoRows
 	}
 
-	// Subtract from source account
+	var blockedCount int
+	err = tx.QueryRow(`SELECT COUNT(*) FROM deposits 
+		WHERE client_id = ? AND bank_name = ? 
+		AND id IN (?, ?) AND is_blocked = 1`,
+		t.ClientID, t.BankName, t.FromAccount, t.ToAccount).Scan(&blockedCount)
+	if err != nil {
+		return err
+	}
+	if blockedCount > 0 {
+		return fmt.Errorf("one or both accounts are blocked")
+	}
+
 	result, err := tx.Exec(`UPDATE deposits 
 		SET amount = amount - ? 
 		WHERE id = ? AND client_id = ? AND bank_name = ? AND amount >= ?`,
@@ -103,7 +231,6 @@ func TransferBetweenAccounts(t models.Transfer) error {
 		return fmt.Errorf("insufficient funds or account not found")
 	}
 
-	// Add to destination account
 	_, err = tx.Exec(`UPDATE deposits 
 		SET amount = amount + ? 
 		WHERE id = ? AND client_id = ? AND bank_name = ?`,
@@ -112,7 +239,6 @@ func TransferBetweenAccounts(t models.Transfer) error {
 		return err
 	}
 
-	// Record transfer
 	_, err = tx.Exec(`INSERT INTO transfers 
 		(client_id, bank_name, from_account, to_account, amount, transfer_date) 
 		VALUES (?, ?, ?, ?, ?, ?)`,
