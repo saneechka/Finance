@@ -1,22 +1,64 @@
 async function makeRequest(endpoint, method, data) {
     try {
-        const response = await fetch(endpoint, {
+        console.log('Making request:', { endpoint, method, data }); // Debug log
+
+        const apiEndpoint = `/api${endpoint}`;
+        const response = await fetch(apiEndpoint, {
             method: method,
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify(data)
         });
+
+        console.log('Response received:', response.status); // Debug log
+
         const result = await response.json();
-        return {
-            status: response.status,
-            data: result
-        };
+        console.log('Response data:', result); // Debug log
+
+        // Display response in the UI
+        const elementId = endpoint.split('/')[2] + '_response'; // get operation type from endpoint
+        const responseElement = document.getElementById(elementId);
+        if (responseElement) {
+            responseElement.style.display = 'block';
+            responseElement.innerHTML = `
+                <div class="operation-status ${response.ok ? 'status-success' : 'status-error'}">
+                    <span class="status-indicator"></span>
+                    <span>${response.ok ? 'Success' : 'Error'}</span>
+                </div>
+                <div class="operation-details">
+                    <strong>Status:</strong> ${response.status}
+                    <br>
+                    <strong>Response:</strong> ${JSON.stringify(result, null, 2)}
+                </div>
+            `;
+        }
+
+        return { status: response.status, data: result };
     } catch (error) {
-        return {
+        console.error('Request error:', error); // Debug log
+        const errorMessage = {
             status: 500,
             data: { error: error.message }
         };
+        
+        // Show error in UI
+        const elementId = endpoint.split('/')[2] + '_response';
+        const responseElement = document.getElementById(elementId);
+        if (responseElement) {
+            responseElement.style.display = 'block';
+            responseElement.innerHTML = `
+                <div class="operation-status status-error">
+                    <span class="status-indicator"></span>
+                    <span>Error</span>
+                </div>
+                <div class="operation-details">
+                    <strong>Error:</strong> ${error.message}
+                </div>
+            `;
+        }
+        
+        return errorMessage;
     }
 }
 
@@ -28,9 +70,8 @@ async function createDeposit() {
         interest: parseFloat(document.getElementById('create_interest').value)
     };
 
-    const result = await makeRequest('/deposit/create', 'POST', data);
-    document.getElementById('create_response').innerHTML = 
-        `Status: ${result.status}<br>Response: ${JSON.stringify(result.data, null, 2)}`;
+    console.log('Creating deposit with data:', data); // Debug log
+    return await makeRequest('/deposit/create', 'POST', data);
 }
 
 async function transferBetweenAccounts() {
@@ -42,9 +83,8 @@ async function transferBetweenAccounts() {
         amount: parseFloat(document.getElementById('transfer_amount').value)
     };
 
-    const result = await makeRequest('/deposit/transfer', 'POST', data);
-    document.getElementById('transfer_response').innerHTML = 
-        `Status: ${result.status}<br>Response: ${JSON.stringify(result.data, null, 2)}`;
+    console.log('Transferring between accounts with data:', data); // Debug log
+    return await makeRequest('/deposit/transfer', 'POST', data);
 }
 
 async function freezeDeposit() {
@@ -55,9 +95,8 @@ async function freezeDeposit() {
         freeze_duration: parseInt(document.getElementById('freeze_duration').value)
     };
 
-    const result = await makeRequest('/deposit/freeze', 'POST', data);
-    document.getElementById('freeze_response').innerHTML = 
-        `Status: ${result.status}<br>Response: ${JSON.stringify(result.data, null, 2)}`;
+    console.log('Freezing deposit with data:', data); // Debug log
+    return await makeRequest('/deposit/freeze', 'POST', data);
 }
 
 async function blockDeposit() {
@@ -67,9 +106,8 @@ async function blockDeposit() {
         deposit_id: parseInt(document.getElementById('block_deposit_id').value)
     };
 
-    const result = await makeRequest('/deposit/block', 'POST', data);
-    document.getElementById('block_response').innerHTML = 
-        `Status: ${result.status}<br>Response: ${JSON.stringify(result.data, null, 2)}`;
+    console.log('Blocking deposit with data:', data); // Debug log
+    return await makeRequest('/deposit/block', 'POST', data);
 }
 
 async function unblockDeposit() {
@@ -79,9 +117,8 @@ async function unblockDeposit() {
         deposit_id: parseInt(document.getElementById('unblock_deposit_id').value)
     };
 
-    const result = await makeRequest('/deposit/unblock', 'POST', data);
-    document.getElementById('unblock_response').innerHTML = 
-        `Status: ${result.status}<br>Response: ${JSON.stringify(result.data, null, 2)}`;
+    console.log('Unblocking deposit with data:', data); // Debug log
+    return await makeRequest('/deposit/unblock', 'POST', data);
 }
 
 async function deleteDeposit() {
@@ -90,7 +127,6 @@ async function deleteDeposit() {
         bank_name: document.getElementById('delete_bank_name').value
     };
 
-    const result = await makeRequest('/deposit/delete', 'DELETE', data);
-    document.getElementById('delete_response').innerHTML = 
-        `Status: ${result.status}<br>Response: ${JSON.stringify(result.data, null, 2)}`;
+    console.log('Deleting deposit with data:', data); // Debug log
+    return await makeRequest('/deposit/delete', 'DELETE', data);
 }
