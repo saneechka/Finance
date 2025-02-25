@@ -8,7 +8,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>Finance Management System</h1>
+        <h1>Finance System</h1>
 
         <!-- Create Deposit -->
         <div class="card">
@@ -49,7 +49,6 @@
                 <input type="text" id="freeze_bank_name" placeholder="Bank Name">
             </div>
             <div class="input-group">
-                <input type="number" id="freeze_deposit_id" placeholder="Deposit ID">
                 <input type="number" id="freeze_duration" placeholder="Duration (hours)">
             </div>
             <button onclick="freezeDeposit()">Freeze</button>
@@ -63,9 +62,6 @@
                 <input type="number" id="block_client_id" placeholder="Client ID">
                 <input type="text" id="block_bank_name" placeholder="Bank Name">
             </div>
-            <div class="input-group">
-                <input type="number" id="block_deposit_id" placeholder="Deposit ID">
-            </div>
             <button onclick="blockDeposit()">Block</button>
             <div id="block_response" class="response"></div>
         </div>
@@ -76,9 +72,6 @@
             <div class="input-group">
                 <input type="number" id="unblock_client_id" placeholder="Client ID">
                 <input type="text" id="unblock_bank_name" placeholder="Bank Name">
-            </div>
-            <div class="input-group">
-                <input type="number" id="unblock_deposit_id" placeholder="Deposit ID">
             </div>
             <button onclick="unblockDeposit()">Unblock</button>
             <div id="unblock_response" class="response"></div>

@@ -1,68 +1,176 @@
 async function makeRequest(endpoint, method, data) {
     try {
-        console.log('Making request:', { endpoint, method, data }); // Debug log
+        const button = document.querySelector(`button[onclick="${getOperationName(endpoint)}()"]`);
+        button.classList.add('processing');
+        
+        if (!navigator.onLine) {
+            throw new Error('Нет подключения к интернету');
+        }
 
-        const apiEndpoint = `/api${endpoint}`;
+        const apiEndpoint = `/deposit${endpoint}`;
         const response = await fetch(apiEndpoint, {
             method: method,
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
+        }).catch(error => {
+            throw new Error(`Ошибка сети: ${error.message}`);
         });
 
-        console.log('Response received:', response.status); // Debug log
-
-        const result = await response.json();
-        console.log('Response data:', result); // Debug log
-
-        // Display response in the UI
-        const elementId = endpoint.split('/')[2] + '_response'; // get operation type from endpoint
-        const responseElement = document.getElementById(elementId);
-        if (responseElement) {
-            responseElement.style.display = 'block';
-            responseElement.innerHTML = `
-                <div class="operation-status ${response.ok ? 'status-success' : 'status-error'}">
-                    <span class="status-indicator"></span>
-                    <span>${response.ok ? 'Success' : 'Error'}</span>
-                </div>
-                <div class="operation-details">
-                    <strong>Status:</strong> ${response.status}
-                    <br>
-                    <strong>Response:</strong> ${JSON.stringify(result, null, 2)}
-                </div>
-            `;
+        let result;
+        try {
+            result = await response.json();
+        } catch (e) {
+            throw new Error('Некорректный формат ответа от сервера');
+        }
+        
+        if (response.ok) {
+            const successMessage = getSuccessMessage(endpoint);
+            showFeedback('success', successMessage);
+        } else {
+            const errorMsg = result.error || result.message || getErrorMessage(endpoint, response.status);
+            showFeedback('error', errorMsg);
         }
 
         return { status: response.status, data: result };
     } catch (error) {
-        console.error('Request error:', error); // Debug log
-        const errorMessage = {
-            status: 500,
-            data: { error: error.message }
-        };
-        
-        // Show error in UI
-        const elementId = endpoint.split('/')[2] + '_response';
-        const responseElement = document.getElementById(elementId);
-        if (responseElement) {
-            responseElement.style.display = 'block';
-            responseElement.innerHTML = `
-                <div class="operation-status status-error">
-                    <span class="status-indicator"></span>
-                    <span>Error</span>
-                </div>
-                <div class="operation-details">
-                    <strong>Error:</strong> ${error.message}
-                </div>
-            `;
+        const errorMsg = getNetworkErrorMessage(error);
+        showFeedback('error', errorMsg);
+        return { status: 500, data: { error: error.message } };
+    } finally {
+        const button = document.querySelector(`button[onclick="${getOperationName(endpoint)}()"]`);
+        if (button) button.classList.remove('processing');
+    }
+}
+
+function getNetworkErrorMessage(error) {
+    const networkErrors = {
+        'Failed to fetch': 'Не удалось подключиться к серверу',
+        'NetworkError': 'Проблема с сетевым подключением',
+        'Нет подключения к интернету': 'Отсутствует подключение к интернету',
+        'Некорректный формат ответа от сервера': 'Сервер вернул некорректные данные'
+    };
+
+    for (const [errorText, message] of Object.entries(networkErrors)) {
+        if (error.message.includes(errorText)) {
+            return message;
         }
-        
-        return errorMessage;
+    }
+    
+    return `Ошибка операции: ${error.message}`;
+}
+
+function getErrorMessage(endpoint, statusCode) {
+    const commonErrors = {
+        400: 'Неверные параметры запроса',
+        401: 'Необходима авторизация',
+        403: 'Доступ запрещен',
+        404: 'Ресурс не найден',
+        408: 'Время ожидания истекло',
+        429: 'Слишком много запросов',
+        500: 'Внутренняя ошибка сервера',
+        502: 'Сервер недоступен',
+        503: 'Сервис временно недоступен',
+        504: 'Время ожидания ответа истекло'
+    };
+
+    const specificErrors = {
+        '/create': {
+            400: 'Неверные данные для создания депозита',
+            409: 'Депозит с такими параметрами уже существует'
+        },
+        '/deposit/transfer': {
+            400: 'Неверные параметры перевода',
+            404: 'Один из счетов не найден',
+            409: 'Недостаточно средств или счет заблокирован'
+        },
+        '/deposit/freeze': {
+            400: 'Неверные параметры заморозки',
+            404: 'Депозит не найден',
+            409: 'Депозит уже заморожен или заблокирован'
+        },
+        '/deposit/block': {
+            400: 'Неверные параметры блокировки',
+            404: 'Депозит не найден',
+            409: 'Депозит уже заблокирован'
+        },
+        '/deposit/unblock': {
+            400: 'Неверные параметры разблокировки',
+            404: 'Депозит не найден',
+            403: 'Недостаточно прав для разблокировки'
+        },
+        '/deposit/delete': {
+            400: 'Неверные параметры для удаления',
+            404: 'Депозит не найден',
+            409: 'Депозит не может быть удален: есть активные операции'
+        }
+    };
+
+    return (specificErrors[endpoint] && specificErrors[endpoint][statusCode]) || 
+           commonErrors[statusCode] || 
+           'Неизвестная ошибка при выполнении операции';
+}
+
+function getOperationName(endpoint) {
+    const operations = {
+        '/create': 'createDeposit',
+        '/transfer': 'transferBetweenAccounts',
+        '/freeze': 'freezeDeposit',
+        '/block': 'blockDeposit',
+        '/unblock': 'unblockDeposit',
+        '/delete': 'deleteDeposit'
+    };
+    return operations[endpoint];
+}
+
+function getSuccessMessage(endpoint) {
+    const messages = {
+        '/create': 'Депозит успешно создан! 🎉',
+        '/transfer': 'Перевод успешно выполнен! 💸',
+        ' /freeze': 'Депозит успешно заморожен! ❄️',
+        ' /block': 'Депозит успешно заблокирован! 🔒',
+        ' /unblock': 'Депозит успешно разблокирован! 🔓',
+        ' /delete': 'Депозит успешно удален! 🗑️'
+    };
+    return messages[endpoint];
+}
+
+function showFeedback(type, message) {
+    const feedbackDiv = document.createElement('div');
+    feedbackDiv.className = `feedback-message ${type}`;
+    
+    const icons = {
+        processing: '⏳',
+        success: '✅',
+        error: '❌'
+    };
+
+    feedbackDiv.innerHTML = `
+        <span class="feedback-icon">${icons[type]}</span>
+        <span class="feedback-text">${message}</span>
+        <button onclick="this.parentElement.remove()" class="feedback-close">×</button>
+    `;
+
+    // Remove any existing feedback after 3 seconds
+    const existingFeedback = document.querySelector('.feedback-message');
+    if (existingFeedback) {
+        existingFeedback.remove();
+    }
+
+    document.body.appendChild(feedbackDiv);
+    
+    // Auto-hide after 3 seconds for success/error messages
+    if (type !== 'processing') {
+        setTimeout(() => {
+            feedbackDiv.classList.add('fade-out');
+            setTimeout(() => feedbackDiv.remove(), 500);
+        }, 3000);
     }
 }
 
 async function createDeposit() {
+    const button = document.querySelector('button[onclick="createDeposit()"]');
+    button.classList.add('processing');
+    
     const data = {
         client_id: parseInt(document.getElementById('create_client_id').value),
         bank_name: document.getElementById('create_bank_name').value,
@@ -70,11 +178,25 @@ async function createDeposit() {
         interest: parseFloat(document.getElementById('create_interest').value)
     };
 
-    console.log('Creating deposit with data:', data); // Debug log
-    return await makeRequest('/deposit/create', 'POST', data);
+    try {
+        const result = await makeRequest('/create', 'POST', data);
+        if (result.status >= 200 && result.status < 300) {
+            showFeedback('success', 'Депозит успешно создан! 🎉');
+            // Clear form
+            ['create_client_id', 'create_bank_name', 'create_amount', 'create_interest']
+                .forEach(id => document.getElementById(id).value = '');
+        } else {
+            showFeedback('error', 'Ошибка при создании депозита');
+        }
+    } finally {
+        button.classList.remove('processing');
+    }
 }
 
 async function transferBetweenAccounts() {
+    const button = document.querySelector('button[onclick="transferBetweenAccounts()"]');
+    button.classList.add('processing');
+    
     const data = {
         client_id: parseInt(document.getElementById('transfer_client_id').value),
         bank_name: document.getElementById('transfer_bank_name').value,
@@ -83,50 +205,162 @@ async function transferBetweenAccounts() {
         amount: parseFloat(document.getElementById('transfer_amount').value)
     };
 
-    console.log('Transferring between accounts with data:', data); // Debug log
-    return await makeRequest('/deposit/transfer', 'POST', data);
+    try {
+        const result = await makeRequest('/deposit/transfer', 'POST', data);
+        if (result.status >= 200 && result.status < 300) {
+            showFeedback('success', 'Перевод успешно выполнен! 💸');
+        } else {
+            let errorMsg = 'Ошибка при выполнении перевода';
+            switch (result.status) {
+                case 400:
+                    errorMsg = 'Неверные данные для перевода';
+                    break;
+                case 404:
+                    errorMsg = 'Один из счетов не найден';
+                    break;
+                case 403:
+                    errorMsg = 'Недостаточно прав для выполнения перевода';
+                    break;
+                case 409:
+                    errorMsg = 'Недостаточно средств на счете';
+                    break;
+            }
+            showFeedback('error', errorMsg);
+        }
+    } finally {
+        button.classList.remove('processing');
+    }
 }
 
 async function freezeDeposit() {
+    const button = document.querySelector('button[onclick="freezeDeposit()"]');
+    button.classList.add('processing');
+    
     const data = {
         client_id: parseInt(document.getElementById('freeze_client_id').value),
         bank_name: document.getElementById('freeze_bank_name').value,
-        deposit_id: parseInt(document.getElementById('freeze_deposit_id').value),
         freeze_duration: parseInt(document.getElementById('freeze_duration').value)
     };
 
-    console.log('Freezing deposit with data:', data); // Debug log
-    return await makeRequest('/deposit/freeze', 'POST', data);
+    try {
+        const result = await makeRequest('/deposit/freeze', 'POST', data);
+        if (result.status >= 200 && result.status < 300) {
+            showFeedback('success', 'Депозит успешно заморожен! ❄️');
+        } else {
+            let errorMsg = 'Ошибка при заморозке депозита';
+            switch (result.status) {
+                case 400:
+                    errorMsg = 'Неверные параметры заморозки';
+                    break;
+                case 404:
+                    errorMsg = 'Депозит не найден';
+                    break;
+                case 409:
+                    errorMsg = 'Депозит уже заморожен или заблокирован';
+                    break;
+            }
+            showFeedback('error', errorMsg);
+        }
+    } finally {
+        button.classList.remove('processing');
+    }
 }
 
 async function blockDeposit() {
+    const button = document.querySelector('button[onclick="blockDeposit()"]');
+    button.classList.add('processing');
+    
     const data = {
         client_id: parseInt(document.getElementById('block_client_id').value),
-        bank_name: document.getElementById('block_bank_name').value,
-        deposit_id: parseInt(document.getElementById('block_deposit_id').value)
+        bank_name: document.getElementById('block_bank_name').value
     };
 
-    console.log('Blocking deposit with data:', data); // Debug log
-    return await makeRequest('/deposit/block', 'POST', data);
+    try {
+        const result = await makeRequest('/deposit/block', 'POST', data);
+        if (result.status >= 200 && result.status < 300) {
+            showFeedback('success', 'Депозит успешно заблокирован! 🔒');
+        } else {
+            let errorMsg = 'Ошибка при блокировке депозита';
+            switch (result.status) {
+                case 400:
+                    errorMsg = 'Неверные параметры блокировки';
+                    break;
+                case 404:
+                    errorMsg = 'Депозит не найден';
+                    break;
+                case 409:
+                    errorMsg = 'Депозит уже заблокирован';
+                    break;
+            }
+            showFeedback('error', errorMsg);
+        }
+    } finally {
+        button.classList.remove('processing');
+    }
 }
 
 async function unblockDeposit() {
+    const button = document.querySelector('button[onclick="unblockDeposit()"]');
+    button.classList.add('processing');
+    
     const data = {
         client_id: parseInt(document.getElementById('unblock_client_id').value),
-        bank_name: document.getElementById('unblock_bank_name').value,
-        deposit_id: parseInt(document.getElementById('unblock_deposit_id').value)
+        bank_name: document.getElementById('unblock_bank_name').value
     };
 
-    console.log('Unblocking deposit with data:', data); // Debug log
-    return await makeRequest('/deposit/unblock', 'POST', data);
+    try {
+        const result = await makeRequest('/deposit/unblock', 'POST', data);
+        if (result.status >= 200 && result.status < 300) {
+            showFeedback('success', 'Депозит успешно разблокирован! 🔓');
+        } else {
+            let errorMsg = 'Ошибка при разблокировке депозита';
+            switch (result.status) {
+                case 400:
+                    errorMsg = 'Неверные параметры разблокировки';
+                    break;
+                case 404:
+                    errorMsg = 'Депозит не найден';
+                    break;
+                case 403:
+                    errorMsg = 'Недостаточно прав для разблокировки';
+                    break;
+            }
+            showFeedback('error', errorMsg);
+        }
+    } finally {
+        button.classList.remove('processing');
+    }
 }
 
 async function deleteDeposit() {
+    const button = document.querySelector('button[onclick="deleteDeposit()"]');
+    button.classList.add('processing');
+    
     const data = {
         client_id: parseInt(document.getElementById('delete_client_id').value),
         bank_name: document.getElementById('delete_bank_name').value
     };
 
-    console.log('Deleting deposit with data:', data); // Debug log
-    return await makeRequest('/deposit/delete', 'DELETE', data);
+    try {
+        const result = await makeRequest('/deposit/delete', 'DELETE', data);
+        if (result.status >= 200 && result.status < 300) {
+            showFeedback('success', 'Депозит успешно удален! 🗑️');
+        } else {
+            let errorMsg = 'Ошибка при удалении депозита';
+            switch (result.status) {
+                case 400:
+                    errorMsg = 'Неверные параметры для удаления';
+                    break;
+                case 404:
+                    errorMsg = 'Депозит не найден';
+                    break;
+                case 409:
+                    errorMsg = 'Депозит не может быть удален: активные транзакции или блокировка';
+                    break;
+            }
+            showFeedback('error', errorMsg);
+        }
+    } finally {
+        button.classList.remove('processing');
+    }
 }

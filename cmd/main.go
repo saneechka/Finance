@@ -11,12 +11,12 @@ import (
 func main() {
 	r := gin.Default()
 
-	// Get the path to the static directory
+	
 	_, b, _, _ := runtime.Caller(0)
 	basepath := filepath.Dir(b)
 	staticPath := filepath.Join(filepath.Dir(basepath), "static")
 
-	// Serve static files
+	
 	r.Static("/static", staticPath)
 	r.GET("/", func(c *gin.Context) {
 		c.File(filepath.Join(staticPath, "index.html"))
@@ -30,5 +30,5 @@ func main() {
 	r.POST("/deposit/freeze", handlers.FreezeDeposit)
 	r.DELETE("/deposit/delete", handlers.DeleteDeposit)
 
-	r.Run(":8085")
+	r.Run(":8080")
 }
