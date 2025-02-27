@@ -11,12 +11,10 @@ import (
 func main() {
 	r := gin.Default()
 
-	
 	_, b, _, _ := runtime.Caller(0)
 	basepath := filepath.Dir(b)
 	staticPath := filepath.Join(filepath.Dir(basepath), "static")
 
-	
 	r.Static("/static", staticPath)
 	r.GET("/", func(c *gin.Context) {
 		c.File(filepath.Join(staticPath, "index.html"))
