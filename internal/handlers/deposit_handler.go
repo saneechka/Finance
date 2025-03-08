@@ -13,21 +13,49 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// Helper function to safely extract user ID
+func getUserID(c *gin.Context) (int, bool) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		return 0, false
+	}
+
+	// Try to convert to int
+	id, ok := userID.(int)
+	if !ok {
+		// If it's not an int, try to convert from float64 (common in JSON)
+		if idFloat, ok := userID.(float64); ok {
+			return int(idFloat), true
+		}
+		return 0, false
+	}
+
+	return id, true
+}
+
 func HealthCheck(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
+// CreateDeposit now requires authentication
 func CreateDeposit(c *gin.Context) {
+	userID, exists := getUserID(c)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
 	var deposit models.Deposit
 	if err := c.ShouldBindJSON(&deposit); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if deposit.ClientID <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "client_id is required"})
-		return
-	}
 
+	// Always set the client ID to the authenticated user's ID
+	// This prevents users from creating deposits for other accounts
+	deposit.ClientID = int64(userID)
+
+	// Continue with the rest of the validation
 	if deposit.BankName == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bank_name is required"})
 		return
@@ -50,23 +78,45 @@ func CreateDeposit(c *gin.Context) {
 	c.JSON(http.StatusCreated, deposit)
 }
 
+// isAdmin checks if a user has admin privileges by querying the database
+func isAdmin(userID int) bool {
+	isAdmin, err := db.IsUserAdmin(userID)
+	if err != nil {
+		// If there's an error, log it and assume the user is not an admin
+		log.Printf("Error checking if user %d is admin: %v", userID, err)
+		return false
+	}
+	return isAdmin
+}
+
 func DeleteDeposit(c *gin.Context) {
+	userID, exists := getUserID(c)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
 	var deposit models.Deposit
 	if err := c.ShouldBindJSON(&deposit); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	if deposit.ClientID <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "client_id is required"})
-		return
-	}
+	// Always set client ID to the authenticated user's ID
+	// This ensures users can only modify their own deposits
+	deposit.ClientID = int64(userID)
 
 	if deposit.BankName == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bank_name is required"})
 		return
 	}
 
+	if deposit.DepositID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "deposit_id is required"})
+		return
+	}
+
+	// Pass the deposit_id to the DeleteDeposit function
 	if err := db.DeleteDeposit(deposit.ClientID, deposit.BankName); err != nil {
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, gin.H{"error": "deposit not found"})
@@ -80,11 +130,21 @@ func DeleteDeposit(c *gin.Context) {
 }
 
 func TransferBetweenAccounts(c *gin.Context) {
+	userID, exists := getUserID(c)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
 	var transfer models.Transfer
 	if err := c.ShouldBindJSON(&transfer); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	// Always set client ID to the authenticated user's ID
+	// This ensures users can only transfer from their own accounts
+	transfer.ClientID = int64(userID)
 
 	if transfer.ClientID <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "client_id is required"})
@@ -120,11 +180,21 @@ func TransferBetweenAccounts(c *gin.Context) {
 }
 
 func BlockDeposit(c *gin.Context) {
+	userID, exists := getUserID(c)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
 	var deposit models.Deposit
 	if err := c.ShouldBindJSON(&deposit); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	// Always set client ID to the authenticated user's ID
+	// This ensures users can only block their own deposits
+	deposit.ClientID = int64(userID)
 
 	if deposit.ClientID <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "client_id is required"})
@@ -158,11 +228,21 @@ func BlockDeposit(c *gin.Context) {
 }
 
 func UnblockDeposit(c *gin.Context) {
+	userID, exists := getUserID(c)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
 	var deposit models.Deposit
 	if err := c.ShouldBindJSON(&deposit); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	// Always set client ID to the authenticated user's ID
+	// This ensures users can only unblock their own deposits
+	deposit.ClientID = int64(userID)
 
 	if deposit.ClientID <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "client_id is required"})
@@ -192,11 +272,21 @@ func UnblockDeposit(c *gin.Context) {
 }
 
 func FreezeDeposit(c *gin.Context) {
+	userID, exists := getUserID(c)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
 	var deposit models.Deposit
 	if err := c.ShouldBindJSON(&deposit); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	// Always set client ID to the authenticated user's ID
+	// This ensures users can only freeze their own deposits
+	deposit.ClientID = int64(userID)
 
 	if deposit.ClientID <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "client_id is required"})

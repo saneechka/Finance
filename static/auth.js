@@ -32,30 +32,61 @@ function showMessage(formId, message, type = 'error') {
 }
 
 async function login() {
-    const nickname = document.getElementById('login-nickname').value;
+    const username = document.getElementById('login-nickname').value;
     const password = document.getElementById('login-password').value;
+    
+    if (!username || !password) {
+        showMessage('login-form', 'Please enter both username and password');
+        return;
+    }
 
-    // Skip validation and always treat as successful
-    showMessage('login-form', 'Login successful!', 'success');
-    
-    // Set a dummy token
-    localStorage.setItem('token', 'dummy_token');
-    
-    // Redirect to requests page
-    setTimeout(() => {
-        window.location.href = '/api/deposit/requests';
-    }, 1000);
+    try {
+        const response = await fetch('/auth/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                username: username,
+                password: password
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.token) {
+            localStorage.setItem('authToken', data.token);
+            localStorage.setItem('userID', data.user_id);
+            localStorage.setItem('username', data.username);
+            localStorage.setItem('userRole', data.role);
+            localStorage.setItem('tokenExpires', data.expires);
+            
+            showMessage('login-form', 'Login successful!', 'success');
+            
+            // Redirect to main page after login
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 1000);
+        } else {
+            showMessage('login-form', data.error || 'Login failed');
+        }
+    } catch (error) {
+        console.error('Login error:', error);
+        showMessage('login-form', 'An error occurred during login');
+    }
 }
 
 async function register() {
-    const nickname = document.getElementById('register-nickname').value;
+    const name = document.getElementById('register-name').value;
+    const email = document.getElementById('register-email').value;
+    const username = document.getElementById('register-nickname').value;
     const role = document.getElementById('register-role').value;
     const password = document.getElementById('register-password').value;
     const confirmPassword = document.getElementById('register-confirm-password').value;
 
     // Validation
-    if (!nickname || !role || !password || !confirmPassword) {
-        showMessage('register-form', 'Please fill in all fields');
+    if (!username || !password || !confirmPassword) {
+        showMessage('register-form', 'Username and password are required');
         return;
     }
 
@@ -76,9 +107,11 @@ async function register() {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                nickname,
-                role,
-                password
+                username: username,
+                email: email,
+                password: password,
+                fullName: name,
+                role: role || 'client' // Default to client if not specified
             })
         });
 
@@ -88,11 +121,12 @@ async function register() {
             showMessage('register-form', 'Registration successful!', 'success');
             setTimeout(() => {
                 switchTab('login');
-            }, 1000);
+            }, 1500);
         } else {
             showMessage('register-form', data.error || 'Registration failed');
         }
     } catch (error) {
+        console.error('Registration error:', error);
         showMessage('register-form', 'An error occurred. Please try again.');
     }
 }
@@ -101,3 +135,12 @@ function showForgotPassword() {
     // Implement forgot password functionality
     alert('Password reset functionality will be implemented soon.');
 }
+
+// Check if user is already logged in when the page loads
+document.addEventListener('DOMContentLoaded', () => {
+    const token = localStorage.getItem('authToken');
+    if (token) {
+        // User is already logged in, redirect to main page
+        window.location.href = '/';
+    }
+});
