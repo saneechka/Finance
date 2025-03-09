@@ -15,6 +15,7 @@ func EnsureUserTableExists() error {
 			password TEXT NOT NULL,
 			email TEXT,
 			role TEXT DEFAULT 'client',
+			approved INTEGER DEFAULT 0,
 			created_at TIMESTAMP NOT NULL,
 			updated_at TIMESTAMP NOT NULL
 		)
@@ -44,9 +45,10 @@ func SaveUser(user *models.User) error {
 	user.CreatedAt = now
 	user.UpdatedAt = now
 
+	// By default, new users are not approved
 	query := `
-		INSERT INTO users (username, password, email, role, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?)
+		INSERT INTO users (username, password, email, role, approved, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
 	`
 
 	result, err := db.Exec(
@@ -54,7 +56,8 @@ func SaveUser(user *models.User) error {
 		user.Username,
 		user.Password,
 		user.Email,
-		user.Role, // Added role field
+		user.Role,
+		boolToInt(user.Approved), // Default is false (0)
 		user.CreatedAt,
 		user.UpdatedAt,
 	)
@@ -82,16 +85,18 @@ func GetUserByUsername(username string) (*models.User, error) {
 
 	user := &models.User{}
 	query := `
-		SELECT id, username, password, email, role, created_at, updated_at
+		SELECT id, username, password, email, role, approved, created_at, updated_at
 		FROM users
 		WHERE username = ?
 	`
+	var approved int
 	err := db.QueryRow(query, username).Scan(
 		&user.ID,
 		&user.Username,
 		&user.Password,
 		&user.Email,
-		&user.Role, // Added role field
+		&user.Role,
+		&approved,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -100,6 +105,7 @@ func GetUserByUsername(username string) (*models.User, error) {
 		return nil, err
 	}
 
+	user.Approved = approved == 1
 	return user, nil
 }
 
@@ -112,16 +118,18 @@ func GetUserByID(id int) (*models.User, error) {
 
 	user := &models.User{}
 	query := `
-		SELECT id, username, password, email, role, created_at, updated_at
+		SELECT id, username, password, email, role, approved, created_at, updated_at
 		FROM users
 		WHERE id = ?
 	`
+	var approved int
 	err := db.QueryRow(query, id).Scan(
 		&user.ID,
 		&user.Username,
 		&user.Password,
 		&user.Email,
-		&user.Role, // Added role field
+		&user.Role,
+		&approved,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -130,6 +138,7 @@ func GetUserByID(id int) (*models.User, error) {
 		return nil, err
 	}
 
+	user.Approved = approved == 1
 	return user, nil
 }
 
@@ -142,4 +151,54 @@ func IsUserAdmin(userID int) (bool, error) {
 	}
 
 	return role == "admin", nil
+}
+
+// ApproveUser approves a user by their ID
+func ApproveUser(userID int) error {
+	query := `UPDATE users SET approved = 1, updated_at = ? WHERE id = ?`
+	_, err := db.Exec(query, time.Now(), userID)
+	return err
+}
+
+// RejectUser deletes a user by their ID (alternative to approval)
+func RejectUser(userID int) error {
+	query := `DELETE FROM users WHERE id = ?`
+	_, err := db.Exec(query, userID)
+	return err
+}
+
+// GetPendingUsers returns a list of users waiting for approval
+func GetPendingUsers() ([]models.User, error) {
+	users := []models.User{}
+
+	query := `
+		SELECT id, username, email, role, created_at, updated_at
+		FROM users
+		WHERE approved = 0
+		ORDER BY created_at DESC
+	`
+
+	rows, err := db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var user models.User
+		err := rows.Scan(
+			&user.ID,
+			&user.Username,
+			&user.Email,
+			&user.Role,
+			&user.CreatedAt,
+			&user.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, user)
+	}
+
+	return users, nil
 }

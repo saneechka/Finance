@@ -75,6 +75,15 @@ func CreateDeposit(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save deposit"})
 		return
 	}
+
+	// Log the transaction
+	amount := deposit.Amount
+	_, err := db.LogTransaction(deposit.ClientID, "create", &amount,
+		fmt.Sprintf("Created deposit in %s", deposit.BankName))
+	if err != nil {
+		log.Printf("Error logging transaction: %v", err)
+	}
+
 	c.JSON(http.StatusCreated, deposit)
 }
 
@@ -124,6 +133,13 @@ func DeleteDeposit(c *gin.Context) {
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete deposit"})
 		return
+	}
+
+	// Log the transaction
+	_, err := db.LogTransaction(deposit.ClientID, "delete", nil,
+		fmt.Sprintf("Deleted deposit %d in %s", deposit.DepositID, deposit.BankName))
+	if err != nil {
+		log.Printf("Error logging transaction: %v", err)
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "deposit deleted successfully"})
@@ -176,6 +192,14 @@ func TransferBetweenAccounts(c *gin.Context) {
 		return
 	}
 
+	// Log the transaction
+	amount := transfer.Amount
+	_, err := db.LogTransaction(transfer.ClientID, "transfer", &amount,
+		fmt.Sprintf("Transfer from %d to %d", transfer.FromAccount, transfer.ToAccount))
+	if err != nil {
+		log.Printf("Error logging transaction: %v", err)
+	}
+
 	c.JSON(http.StatusOK, gin.H{"message": "transfer completed successfully"})
 }
 
@@ -224,6 +248,13 @@ func BlockDeposit(c *gin.Context) {
 		return
 	}
 
+	// Log the transaction
+	_, err := db.LogTransaction(deposit.ClientID, "block", nil,
+		fmt.Sprintf("Blocked deposit %d in %s", deposit.DepositID, deposit.BankName))
+	if err != nil {
+		log.Printf("Error logging transaction: %v", err)
+	}
+
 	c.JSON(http.StatusOK, gin.H{"message": "deposit blocked successfully"})
 }
 
@@ -266,6 +297,13 @@ func UnblockDeposit(c *gin.Context) {
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to unblock deposit"})
 		return
+	}
+
+	// Log the transaction
+	_, err := db.LogTransaction(deposit.ClientID, "unblock", nil,
+		fmt.Sprintf("Unblocked deposit %d in %s", deposit.DepositID, deposit.BankName))
+	if err != nil {
+		log.Printf("Error logging transaction: %v", err)
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "deposit unblocked successfully"})
@@ -329,7 +367,44 @@ func FreezeDeposit(c *gin.Context) {
 		return
 	}
 
+	// Log the transaction
+	_, err := db.LogTransaction(deposit.ClientID, "freeze", nil,
+		fmt.Sprintf("Froze deposit %d in %s for %d hours",
+			deposit.DepositID, deposit.BankName, deposit.FreezeDuration))
+	if err != nil {
+		log.Printf("Error logging transaction: %v", err)
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"message": fmt.Sprintf("deposit frozen for %d hours", deposit.FreezeDuration),
+	})
+}
+
+// GetDeposits retrieves all deposits for the authenticated user
+func GetDeposits(c *gin.Context) {
+	userID, exists := getUserID(c)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
+	// Get all deposits for this user
+	deposits, err := db.GetDepositsByUserID(int64(userID))
+	if err != nil {
+		log.Printf("Error fetching deposits for user %d: %v", userID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load deposits"})
+		return
+	}
+
+	// Return empty array instead of null if no deposits found
+	if deposits == nil {
+		deposits = []models.Deposit{}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data": gin.H{
+			"deposits": deposits,
+		},
 	})
 }

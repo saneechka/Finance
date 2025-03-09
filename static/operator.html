@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Finance Management - Operator Panel</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="/static/styles.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        .operator-section {
+            margin-bottom: 30px;
+        }
+        
+        .transaction-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        
+        .transaction-table th, .transaction-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .transaction-table th {
+            background-color: #f1f5f9;
+            font-weight: 600;
+        }
+        
+        .cancellation-used {
+            color: #dc2626;
+            font-size: 0.9em;
+            font-style: italic;
+            margin-top: 5px;
+        }
+        
+        .statistics-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .stat-card {
+            border-radius: 8px;
+            padding: 20px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .stat-title {
+            font-size: 0.9em;
+            color: #64748b;
+            margin-bottom: 10px;
+        }
+        
+        .stat-value {
+            font-size: 1.8em;
+            font-weight: 600;
+            color: #334155;
+        }
+        
+        .filter-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .refresh-button {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <div class="logo">Finance Management</div>
+        <div id="user-info" style="display: none;"></div>
+    </div>
+
+    <div class="container">
+        <!-- Authentication check message -->
+        <div id="auth-check" style="display: none; text-align: center; padding: 40px;">
+            <h2>Please log in to access the operator panel</h2>
+            <p>You need operator privileges to use this page.</p>
+            <a href="/auth" class="button primary">Go to Login</a>
+        </div>
+
+        <!-- Operator panel content -->
+        <div id="app-content" style="display: none;">
+            <div class="card">
+                <h2>Operator Panel</h2>
+                <p>View transaction statistics and manage user actions</p>
+                
+                <!-- Statistics Section -->
+                <div class="operator-section">
+                    <div class="section-header">
+                        <h3>Transaction Statistics</h3>
+                        <button class="refresh-button" onclick="loadStatistics()">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                    </div>
+                    
+                    <div class="statistics-container" id="statistics-container">
+                        <div class="stat-card">
+                            <div class="stat-title">Total Transactions</div>
+                            <div class="stat-value" id="total-transactions">-</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-title">Total Amount Transferred</div>
+                            <div class="stat-value" id="total-amount">-</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-title">Active Users</div>
+                            <div class="stat-value" id="active-users">-</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-title">Average Transaction</div>
+                            <div class="stat-value" id="avg-transaction">-</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Transaction List Section -->
+                <div class="operator-section">
+                    <div class="section-header">
+                        <h3>Transaction History</h3>
+                    </div>
+                    
+                    <div class="filter-controls">
+                        <div class="form-group">
+                            <label for="filter-user">Filter by User</label>
+                            <input type="text" id="filter-user" placeholder="Enter username">
+                        </div>
+                        <div class="form-group">
+                            <label for="filter-date">Filter by Date</label>
+                            <input type="date" id="filter-date">
+                        </div>
+                        <div class="form-group">
+                            <label for="filter-type">Transaction Type</label>
+                            <select id="filter-type">
+                                <option value="">All Types</option>
+                                <option value="transfer">Transfers</option>
+                                <option value="create">Deposits</option>
+                                <option value="freeze">Freeze</option>
+                                <option value="block">Block/Unblock</option>
+                            </select>
+                        </div>
+                        <button onclick="applyFilters()">Apply Filters</button>
+                    </div>
+                    
+                    <div id="transactions-container">
+                        <div class="loading">Loading transactions...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const authToken = sessionStorage.getItem('authToken');
+            const userRole = sessionStorage.getItem('userRole');
+            
+            if (authToken && userRole === 'operator') {
+                document.getElementById('app-content').style.display = 'block';
+                document.getElementById('auth-check').style.display = 'none';
+                
+                // Display user info
+                const userID = sessionStorage.getItem('userID');
+                const username = sessionStorage.getItem('username') || userID;
+                
+                const userInfo = document.getElementById('user-info');
+                userInfo.innerHTML = `
+                    <div class="user-info-details">
+                        <span class="username">${username}</span>
+                        <span class="user-role operator">Operator</span>
+                    </div>
+                    <button onclick="logoutUser()">Logout</button>
+                `;
+                userInfo.style.display = 'flex';
+                
+                // Load initial data
+                loadStatistics();
+                loadTransactions();
+            } else {
+                document.getElementById('app-content').style.display = 'none';
+                document.getElementById('auth-check').style.display = 'block';
+            }
+        });
+
+        async function loadStatistics() {
+            try {
+                const response = await fetch('/operator/statistics', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': 'Bearer ' + sessionStorage.getItem('authToken'),
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to load statistics');
+                }
+                
+                const stats = await response.json();
+                
+                document.getElementById('total-transactions').textContent = stats.total_transactions;
+                document.getElementById('total-amount').textContent = '$' + stats.total_amount.toFixed(2);
+                document.getElementById('active-users').textContent = stats.active_users;
+                document.getElementById('avg-transaction').textContent = '$' + stats.avg_transaction.toFixed(2);
+                
+            } catch (error) {
+                showFeedback('error', 'Error loading statistics: ' + error.message);
+            }
+        }
+        
+        async function loadTransactions(filters = {}) {
+            const container = document.getElementById('transactions-container');
+            container.innerHTML = '<div class="loading">Loading transactions...</div>';
+            
+            try {
+                // Build query string from filters
+                const queryParams = new URLSearchParams();
+                for (const [key, value] of Object.entries(filters)) {
+                    if (value) queryParams.append(key, value);
+                }
+                
+                const response = await fetch('/operator/transactions?' + queryParams.toString(), {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': 'Bearer ' + sessionStorage.getItem('authToken'),
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to load transactions');
+                }
+                
+                const result = await response.json();
+                
+                if (!result.transactions || result.transactions.length === 0) {
+                    container.innerHTML = '<div class="no-data-message">No transactions found</div>';
+                    return;
+                }
+                
+                // Create table to display transactions
+                let html = `
+                    <table class="transaction-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>User</th>
+                                <th>Type</th>
+                                <th>Amount</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                result.transactions.forEach(tx => {
+                    const date = new Date(tx.timestamp).toLocaleString();
+                    html += `
+                        <tr data-tx-id="${tx.id}">
+                            <td>${tx.id}</td>
+                            <td>${tx.username}</td>
+                            <td>${tx.type}</td>
+                            <td>$${tx.amount ? tx.amount.toFixed(2) : '–'}</td>
+                            <td>${date}</td>
+                            <td>
+                                ${tx.can_cancel ? 
+                                  `<button class="button small" onclick="cancelTransaction(${tx.id})">Cancel</button>` :
+                                  `<span class="cancellation-used">Cancellation not available</span>`}
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                html += `
+                        </tbody>
+                    </table>
+                `;
+                
+                container.innerHTML = html;
+            } catch (error) {
+                container.innerHTML = `<div class="error-message">Error: ${error.message}</div>`;
+            }
+        }
+        
+        async function cancelTransaction(txId) {
+            if (!confirm('Are you sure you want to cancel this transaction? You can only cancel one transaction per account.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/operator/cancel-transaction', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + sessionStorage.getItem('authToken'),
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ transaction_id: txId })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showFeedback('success', 'Transaction cancelled successfully');
+                    
+                    // Refresh transaction list
+                    loadTransactions();
+                    loadStatistics();
+                } else {
+                    showFeedback('error', result.error || 'Failed to cancel transaction');
+                }
+            } catch (error) {
+                showFeedback('error', 'Error: ' + error.message);
+            }
+        }
+        
+        function applyFilters() {
+            const filters = {
+                username: document.getElementById('filter-user').value,
+                date: document.getElementById('filter-date').value,
+                type: document.getElementById('filter-type').value
+            };
+            
+            loadTransactions(filters);
+        }
+    </script>
+</body>
+</html>

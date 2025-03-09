@@ -23,148 +23,93 @@
 
         <!-- Main application content -->
         <div id="app-content" style="display: none;">
-            <!-- Action buttons -->
-            <div class="action-buttons">
-                <button class="secondary" onclick="clearAllResponses()">Clear All Responses</button>
-                <button class="secondary" onclick="clearRequestLog()">Clear Request Log</button>
-            </div>
-
-            <div class="card">
-                <h2>Deposit Management</h2>
-                
-                <!-- Create Deposit Section -->
-                <div class="operation-section">
-                    <h3>Create Deposit</h3>
-                    <div class="form-group">
-                        <label for="create_bank_name">Bank Name</label>
-                        <input type="text" id="create_bank_name" placeholder="Enter bank name">
-                    </div>
-                    <div class="form-group">
-                        <label for="create_amount">Amount</label>
-                        <input type="number" id="create_amount" placeholder="Enter amount">
-                    </div>
-                    <div class="form-group">
-                        <label for="create_interest">Interest Rate (%)</label>
-                        <input type="number" id="create_interest" placeholder="Enter interest rate">
-                    </div>
-                    <button onclick="createDeposit()">Create Deposit</button>
-                    <div id="create_response" class="response-container"></div>
-                </div>
-                
-                <!-- Transfer Between Accounts Section -->
-                <div class="operation-section">
-                    <h3>Transfer Between Accounts</h3>
-                    <div class="form-group">
-                        <label for="transfer_bank_name">Bank Name</label>
-                        <input type="text" id="transfer_bank_name" placeholder="Enter bank name">
-                    </div>
-                    <div class="form-group">
-                        <label for="from_account">From Account ID</label>
-                        <input type="number" id="from_account" placeholder="Enter source account ID">
-                    </div>
-                    <div class="form-group">
-                        <label for="to_account">To Account ID</label>
-                        <input type="number" id="to_account" placeholder="Enter destination account ID">
-                    </div>
-                    <div class="form-group">
-                        <label for="transfer_amount">Amount</label>
-                        <input type="number" id="transfer_amount" placeholder="Enter amount to transfer">
-                    </div>
-                    <div class="form-group">
-                        <label for="transfer_deposit_id">Deposit ID</label>
-                        <input type="number" id="transfer_deposit_id" placeholder="Enter deposit ID">
-                    </div>
-                    <button onclick="transferBetweenAccounts()">Transfer</button>
-                    <div id="transferBetweenAccounts_response" class="response-container"></div>
-                </div>
-
-                <!-- Freeze Deposit Section -->
-                <div class="operation-section">
-                    <h3>Freeze Deposit</h3>
-                    <div class="form-group">
-                        <label for="freeze_bank_name">Bank Name</label>
-                        <input type="text" id="freeze_bank_name" placeholder="Enter bank name">
-                    </div>
-                    <div class="form-group">
-                        <label for="freeze_deposit_id">Deposit ID</label>
-                        <input type="number" id="freeze_deposit_id" placeholder="Enter deposit ID">
-                    </div>
-                    <div class="form-group">
-                        <label for="freeze_duration">Freeze Duration (hours)</label>
-                        <input type="number" id="freeze_duration" placeholder="Enter freeze duration in hours">
-                    </div>
-                    <button onclick="freezeDeposit()">Freeze Deposit</button>
-                    <div id="freezeDeposit_response" class="response-container"></div>
-                </div>
-
-                <!-- Block Deposit Section -->
-                <div class="operation-section">
-                    <h3>Block Deposit</h3>
-                    <div class="form-group">
-                        <label for="block_bank_name">Bank Name</label>
-                        <input type="text" id="block_bank_name" placeholder="Enter bank name">
-                    </div>
-                    <div class="form-group">
-                        <label for="block_deposit_id">Deposit ID</label>
-                        <input type="number" id="block_deposit_id" placeholder="Enter deposit ID">
-                    </div>
-                    <button onclick="blockDeposit()">Block Deposit</button>
-                    <div id="blockDeposit_response" class="response-container"></div>
-                </div>
-
-                <!-- Unblock Deposit Section -->
-                <div class="operation-section">
-                    <h3>Unblock Deposit</h3>
-                    <div class="form-group">
-                        <label for="unblock_bank_name">Bank Name</label>
-                        <input type="text" id="unblock_bank_name" placeholder="Enter bank name">
-                    </div>
-                    <div class="form-group">
-                        <label for="unblock_deposit_id">Deposit ID</label>
-                        <input type="number" id="unblock_deposit_id" placeholder="Enter deposit ID">
-                    </div>
-                    <button onclick="unblockDeposit()">Unblock Deposit</button>
-                    <div id="unblockDeposit_response" class="response-container"></div>
-                </div>
-
-                <!-- Delete Deposit Section -->
-                <div class="operation-section">
-                    <h3>Delete Deposit</h3>
-                    <div class="form-group">
-                        <label for="delete_bank_name">Bank Name</label>
-                        <input type="text" id="delete_bank_name" placeholder="Enter bank name">
-                    </div>
-                    <div class="form-group">
-                        <label for="delete_deposit_id">Deposit ID</label>
-                        <input type="number" id="delete_deposit_id" placeholder="Enter deposit ID">
-                    </div>
-                    <button onclick="deleteDeposit()">Delete Deposit</button>
-                    <div id="deleteDeposit_response" class="response-container"></div>
-                </div>
-            </div>
-
-            <!-- Request Log -->
-            <div class="card" id="request-log">
-                <h3>Request Log</h3>
-                <div id="request-log-entries"></div>
+            <div class="navigation-cards">
+                <a href="/deposits" class="nav-card">
+                    <i class="fas fa-piggy-bank"></i>
+                    <h3>Управление депозитами</h3>
+                    <p>Создание и управление банковскими депозитами</p>
+                </a>
+                <a href="/loans" class="nav-card">
+                    <i class="fas fa-money-bill-wave"></i>
+                    <h3>Управление кредитами</h3>
+                    <p>Оформление кредитов и рассрочек</p>
+                </a>
             </div>
         </div>
     </div>
 
+    <!-- Create Deposit Modal -->
+    <div id="create-deposit-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>Create New Deposit</h3>
+            <form id="create-deposit-form">
+                <div class="form-group">
+                    <label for="bank_name">Bank Name</label>
+                    <input type="text" id="bank_name" required>
+                </div>
+                <div class="form-group">
+                    <label for="amount">Amount</label>
+                    <input type="number" id="amount" min="0" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label for="interest_rate">Interest Rate (%)</label>
+                    <input type="number" id="interest_rate" min="0" max="100" step="0.1" required>
+                </div>
+                <button type="submit" class="primary-button">Create Deposit</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Create Loan Modal -->
+    <div id="create-loan-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>Request New Loan</h3>
+            <form id="create-loan-form">
+                <div class="form-group">
+                    <label for="loan_type">Loan Type</label>
+                    <select id="loan_type" required>
+                        <option value="standard">Standard Loan</option>
+                        <option value="installment">Installment Plan</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="loan_amount">Amount</label>
+                    <input type="number" id="loan_amount" min="0" step="0.01" required>
+                </div>
+                <div class="form-group"></div>
+                    <label for="loan_term">Term</label>
+                    <select id="loan_term" required>
+                        <option value="3">3 Months (5% Interest)</option>
+                        <option value="6">6 Months (7.5% Interest)</option>
+                        <option value="12">12 Months (10% Interest)</option>
+                        <option value="24">24 Months (15% Interest)</option>
+                        <option value="36">36+ Months (20% Interest)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="custom_rate">Custom Interest Rate (Optional)</label>
+                    <input type="number" id="custom_rate" min="0" max="100" step="0.1">
+                </div>
+                <button type="submit" class="primary-button">Request Loan</button>
+            </form>
+        </div>
+    </div>
+
     <script src="/static/app.js"></script>
-    <script src="/static/main.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const authToken = localStorage.getItem('authToken');
+            const authToken = sessionStorage.getItem('authToken');
             
             if (authToken) {
                 document.getElementById('app-content').style.display = 'block';
                 document.getElementById('auth-check').style.display = 'none';
                 
                 // Display user info
-                const userID = localStorage.getItem('userID');
-                const username = localStorage.getItem('username') || userID;
-                const role = localStorage.getItem('userRole') || 'client';
+                const userID = sessionStorage.getItem('userID');
+                const username = sessionStorage.getItem('username') || userID;
+                const role = sessionStorage.getItem('userRole') || 'client';
                 
                 const userInfo = document.getElementById('user-info');
                 userInfo.innerHTML = `
@@ -185,7 +130,464 @@
                 document.getElementById('app-content').style.display = 'none';
                 document.getElementById('auth-check').style.display = 'block';
             }
+
+            // Tab switching functionality
+            const tabs = document.querySelectorAll('.tab-button');
+            const tabContents = document.querySelectorAll('.tab-content');
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    // Remove active class from all tabs and contents
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tabContents.forEach(c => c.classList.remove('active'));
+
+                    // Add active class to clicked tab and corresponding content
+                    tab.classList.add('active');
+                    const content = document.getElementById(tab.dataset.tab);
+                    if (content) {
+                        content.classList.add('active');
+                        if (tab.dataset.tab === 'deposits') {
+                            loadDeposits();
+                        } else if (tab.dataset.tab === 'loans') {
+                            loadLoans();
+                        }
+                    }
+                });
+            });
+
+            // Load initial data
+            loadDeposits();
+            loadLoans();
+
+            // Set up modal functionality
+            setupModals();
+        });
+
+        // Modal setup
+        function setupModals() {
+            const modals = document.querySelectorAll('.modal');
+            const closeButtons = document.querySelectorAll('.close');
+
+            // Close modal when clicking outside
+            window.onclick = function(event) {
+                modals.forEach(modal => {
+                    if (event.target === modal) {
+                        modal.style.display = "none";
+                    }
+                });
+            };
+
+            // Close button functionality
+            closeButtons.forEach(button => {
+                button.onclick = function() {
+                    const modal = button.closest('.modal');
+                    if (modal) {
+                        modal.style.display = "none";
+                    }
+                };
+            });
+
+            // Form submissions
+            document.getElementById('create-deposit-form').onsubmit = function(e) {
+                e.preventDefault();
+                createDeposit();
+            };
+
+            document.getElementById('create-loan-form').onsubmit = function(e) {
+                e.preventDefault();
+                createLoan();
+            };
+        }
+
+        // Show modals
+        function showCreateDepositModal() {
+            document.getElementById('create-deposit-modal').style.display = 'block';
+        }
+
+        function showCreateLoanModal() {
+            document.getElementById('create-loan-modal').style.display = 'block';
+        }
+
+        // Load deposits
+        async function loadDeposits() {
+            const container = document.getElementById('deposits-list');
+            try {
+                const response = await fetch('/deposit/list', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': 'Bearer ' + sessionStorage.getItem('authToken')
+                    }
+                });
+
+                if (!response.ok) throw new Error('Failed to load deposits');
+                
+                const deposits = await response.json();
+                renderDeposits(deposits);
+            } catch (error) {
+                container.innerHTML = `<div class="error">Error loading deposits: ${error.message}</div>`;
+            }
+        }
+
+        // Load loans
+        async function loadLoans() {
+            const container = document.getElementById('loans-list');
+            try {
+                const response = await fetch('/loan/list', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': 'Bearer ' + sessionStorage.getItem('authToken')
+                    }
+                });
+
+                if (!response.ok) throw new Error('Failed to load loans');
+                
+                const loans = await response.json();
+                renderLoans(loans);
+            } catch (error) {
+                container.innerHTML = `<div class="error">Error loading loans: ${error.message}</div>`;
+            }
+        }
+
+        // Render deposits
+        function renderDeposits(deposits) {
+            const container = document.getElementById('deposits-list');
+            if (!deposits || deposits.length === 0) {
+                container.innerHTML = '<div class="no-data">No deposits found</div>';
+                return;
+            }
+
+            let html = '<div class="cards-grid">';
+            deposits.forEach(deposit => {
+                html += `
+                    <div class="finance-card">
+                        <div class="card-header">
+                            <h3>${deposit.bank_name}</h3>
+                            <span class="status ${deposit.is_blocked ? 'blocked' : deposit.is_frozen ? 'frozen' : 'active'}">
+                                ${deposit.is_blocked ? 'Blocked' : deposit.is_frozen ? 'Frozen' : 'Active'}
+                            </span>
+                        </div>
+                        <div class="card-body">
+                            <div class="amount">$${deposit.amount.toFixed(2)}</div>
+                            <div class="details">
+                                <p>Interest Rate: ${deposit.interest}%</p>
+                                <p>ID: ${deposit.deposit_id}</p>
+                            </div>
+                        </div>
+                        <div class="card-actions">
+                            <button onclick="showTransferModal(${deposit.deposit_id})">Transfer</button>
+                            ${!deposit.is_blocked ? 
+                                `<button onclick="${deposit.is_frozen ? 'unfreezeDeposit' : 'showFreezeModal'}(${deposit.deposit_id})">
+                                    ${deposit.is_frozen ? 'Unfreeze' : 'Freeze'}
+                                </button>` : ''}
+                            ${!deposit.is_frozen ? 
+                                `<button onclick="${deposit.is_blocked ? 'unblockDeposit' : 'blockDeposit'}(${deposit.deposit_id})">
+                                    ${deposit.is_blocked ? 'Unblock' : 'Block'}
+                                </button>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        // Render loans
+        function renderLoans(loans) {
+            const container = document.getElementById('loans-list');
+            if (!loans || loans.length === 0) {
+                container.innerHTML = '<div class="no-data">No loans found</div>';
+                return;
+            }
+
+            let html = '<div class="cards-grid">';
+            loans.forEach(loan => {
+                html += `
+                    <div class="finance-card">
+                        <div class="card-header">
+                            <h3>${loan.type === 'standard' ? 'Standard Loan' : 'Installment Plan'}</h3>
+                            <span class="status ${loan.status.toLowerCase()}">${loan.status}</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="amount">$${loan.amount.toFixed(2)}</div>
+                            <div class="details">
+                                <p>Term: ${loan.term_months} months</p>
+                                <p>Interest Rate: ${loan.interest_rate}%</p>
+                                <p>Monthly Payment: $${loan.monthly_payment.toFixed(2)}</p>
+                                <p>Total Payable: $${loan.total_payable.toFixed(2)}</p>
+                            </div>
+                            ${loan.status === 'Active' ? `
+                                <div class="progress-bar">
+                                    <div class="progress" style="width: ${(loan.paid_amount / loan.total_payable) * 100}%"></div>
+                                </div>
+                            ` : ''}
+                        </div>
+                        ${loan.status === 'Active' ? `
+                            <div class="card-actions">
+                                <button onclick="showPaymentModal(${loan.id})">Make Payment</button>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        // Create new deposit
+        async function createDeposit() {
+            const data = {
+                bank_name: document.getElementById('bank_name').value,
+                amount: parseFloat(document.getElementById('amount').value),
+                interest: parseFloat(document.getElementById('interest_rate').value)
+            };
+
+            try {
+                const response = await fetch('/deposit/create', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + sessionStorage.getItem('authToken'),
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                if (!response.ok) throw new Error('Failed to create deposit');
+
+                document.getElementById('create-deposit-modal').style.display = 'none';
+                document.getElementById('create-deposit-form').reset();
+                showFeedback('success', 'Deposit created successfully');
+                loadDeposits();
+            } catch (error) {
+                showFeedback('error', error.message);
+            }
+        }
+
+        // Create new loan request
+        async function createLoan() {
+            const data = {
+                type: document.getElementById('loan_type').value,
+                amount: parseFloat(document.getElementById('loan_amount').value),
+                term_months: parseInt(document.getElementById('loan_term').value)
+            };
+
+            const customRate = document.getElementById('custom_rate').value;
+            if (customRate) {
+                data.interest_rate = parseFloat(customRate);
+            }
+
+            try {
+                const response = await fetch('/loan/request', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + sessionStorage.getItem('authToken'),
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                if (!response.ok) throw new Error('Failed to create loan request');
+
+                document.getElementById('create-loan-modal').style.display = 'none';
+                document.getElementById('create-loan-form').reset();
+                showFeedback('success', 'Loan request submitted successfully');
+                loadLoans();
+            } catch (error) {
+                showFeedback('error', error.message);
+            }
+        }
+
+        // Update loan term selection to show interest rate
+        document.getElementById('loan_term').addEventListener('change', function() {
+            const rates = {
+                '3': 5.0,
+                '6': 7.5,
+                '12': 10.0,
+                '24': 15.0,
+                '36': 20.0
+            };
+            
+            const term = this.value;
+            const options = this.options;
+            for (let i = 0; i < options.length; i++) {
+                if (options[i].value === term) {
+                    options[i].text = `${term} Months (${rates[term]}% Interest)`;
+                }
+            }
         });
     </script>
+
+    <style>
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .finance-card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .card-header h3 {
+            margin: 0;
+            font-size: 1.1rem;
+        }
+
+        .status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+
+        .status.active { background: #dcfce7; color: #166534; }
+        .status.blocked { background: #fee2e2; color: #991b1b; }
+        .status.frozen { background: #dbeafe; color: #1e40af; }
+        .status.pending { background: #fef3c7; color: #92400e; }
+        .status.approved { background: #f0fdf4; color: #166534; }
+        .status.completed { background: #e0e7ff; color: #3730a3; }
+
+        .card-body {
+            padding: 15px;
+        }
+
+        .amount {
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: #0f172a;
+            margin-bottom: 15px;
+        }
+
+        .details {
+            color: #64748b;
+            font-size: 0.9rem;
+        }
+
+        .details p {
+            margin: 5px 0;
+        }
+
+        .card-actions {
+            padding: 15px;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            gap: 10px;
+        }
+
+        .card-actions button {
+            flex: 1;
+            padding: 8px;
+            border: none;
+            border-radius: 4px;
+            background: #3b82f6;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .card-actions button:hover {
+            background: #2563eb;
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: #e2e8f0;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 15px;
+        }
+
+        .progress {
+            height: 100%;
+            background: #3b82f6;
+            transition: width 0.3s ease;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            width: 90%;
+            max-width: 500px;
+            margin: 50px auto;
+            padding: 20px;
+            border-radius: 8px;
+            position: relative;
+        }
+
+        .close {
+            position: absolute;
+            right: 15px;
+            top: 15px;
+            font-size: 24px;
+            cursor: pointer;
+            color: #64748b;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .tab-button {
+            padding: 10px 20px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            color: #64748b;
+        }
+
+        .tab-button.active {
+            border-bottom-color: #3b82f6;
+            color: #3b82f6;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .primary-button {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 20px;
+            padding: 12px 24px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .primary-button:hover {
+            background: #2563eb;
+        }
+    </style>
 </body>
 </html>

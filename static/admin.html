@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Finance Management - Admin Panel</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="/static/styles.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        .admin-section {
+            margin-bottom: 30px;
+        }
+        
+        .admin-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        
+        .admin-table th, .admin-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .admin-table th {
+            background-color: #f1f5f9;
+            font-weight: 600;
+        }
+        
+        .user-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .user-role {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        
+        .role-client {
+            background-color: #e2f8f0;
+            color: #0d9488;
+        }
+        
+        .role-admin {
+            background-color: #fef2f2;
+            color: #dc2626;
+        }
+        
+        .no-users-message {
+            text-align: center;
+            padding: 30px;
+            color: #64748b;
+            font-style: italic;
+        }
+        
+        .refresh-button {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <div class="logo">Finance Management</div>
+        <div id="user-info" style="display: none;"></div>
+    </div>
+
+    <div class="container">
+        <!-- Authentication check message -->
+        <div id="auth-check" style="display: none; text-align: center; padding: 40px;">
+            <h2>Please log in to access the admin panel</h2>
+            <p>You need administrator privileges to use this page.</p>
+            <a href="/auth" class="button primary">Go to Login</a>
+        </div>
+
+        <!-- Admin panel content -->
+        <div id="app-content" style="display: none;">
+            <div class="card">
+                <h2>Admin Panel</h2>
+                <p>Manage system users and settings</p>
+                
+                <!-- Admin Tabs -->
+                <div class="admin-tabs">
+                    <button class="tab-button active" data-tab="approvals-tab">User Approvals</button>
+                    <button class="tab-button" data-tab="logs-tab">Action Logs</button>
+                    <button class="tab-button" data-tab="actions-tab">User Actions</button>
+                </div>
+                
+                <!-- User Approvals Tab -->
+                <div id="approvals-tab" class="tab-content active">
+                    <div class="admin-section">
+                        <div class="section-header">
+                            <h3>Pending User Approvals</h3>
+                            <button class="refresh-button" onclick="loadPendingUsers()">
+                                <i class="fas fa-sync-alt"></i> Refresh
+                            </button>
+                        </div>
+                        
+                        <div id="pending-users-container">
+                            <div class="loading">Loading pending users...</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Action Logs Tab -->
+                <div id="logs-tab" class="tab-content">
+                    <div class="admin-section">
+                        <div class="section-header">
+                            <h3>Action Logs</h3>
+                            <button class="refresh-button" onclick="loadActionLogs()">
+                                <i class="fas fa-sync-alt"></i> Refresh
+                            </button>
+                        </div>
+                        
+                        <div class="filter-controls">
+                            <div class="form-group">
+                                <label for="log-filter-user">Username</label>
+                                <input type="text" id="log-filter-user" placeholder="Filter by username">
+                            </div>
+                            <div class="form-group">
+                                <label for="log-filter-start-date">From Date</label>
+                                <input type="date" id="log-filter-start-date">
+                            </div>
+                            <div class="form-group">
+                                <label for="log-filter-end-date">To Date</label>
+                                <input type="date" id="log-filter-end-date">
+                            </div>
+                            <div class="form-group">
+                                <label for="log-filter-type">Action Type</label>
+                                <select id="log-filter-type">
+                                    <option value="">All Types</option>
+                                    <option value="create">Create Deposit</option>
+                                    <option value="transfer">Transfer</option>
+                                    <option value="freeze">Freeze</option>
+                                    <option value="block">Block</option>
+                                    <option value="unblock">Unblock</option>
+                                    <option value="delete">Delete</option>
+                                </select>
+                            </div>
+                            <button onclick="applyLogFilters()">Apply Filters</button>
+                        </div>
+                        
+                        <div id="logs-container">
+                            <div class="loading">Loading logs...</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- User Actions Tab -->
+                <div id="actions-tab" class="tab-content">
+                    <div class="admin-section">
+                        <div class="section-header">
+                            <h3>Cancel User Actions</h3>
+                        </div>
+                        
+                        <div class="admin-alert">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <p><strong>Warning:</strong> Cancelling user actions is irreversible and may affect their financial data.</p>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="cancel-user-id">User ID</label>
+                            <input type="number" id="cancel-user-id" placeholder="Enter user ID">
+                        </div>
+                        
+                        <button class="danger-button" onclick="confirmCancelUserActions()">Cancel All User Actions</button>
+                        
+                        <div id="cancel-actions-response" class="response-container"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const authToken = sessionStorage.getItem('authToken');
+            const userRole = sessionStorage.getItem('userRole');
+            
+            if (authToken && userRole === 'admin') {
+                document.getElementById('app-content').style.display = 'block';
+                document.getElementById('auth-check').style.display = 'none';
+                
+                // Display user info
+                const userID = sessionStorage.getItem('userID');
+                const username = sessionStorage.getItem('username') || userID;
+                
+                const userInfo = document.getElementById('user-info');
+                userInfo.innerHTML = `
+                    <div class="user-info-details">
+                        <span class="username">${username}</span>
+                        <span class="user-role admin">Administrator</span>
+                    </div>
+                    <button onclick="logoutUser()">Logout</button>
+                `;
+                userInfo.style.display = 'flex';
+                
+                // Load pending users
+                loadPendingUsers();
+            } else {
+                document.getElementById('app-content').style.display = 'none';
+                document.getElementById('auth-check').style.display = 'block';
+            }
+        });
+
+        async function loadPendingUsers() {
+            const container = document.getElementById('pending-users-container');
+            container.innerHTML = '<div class="loading">Loading pending users...</div>';
+            
+            try {
+                const response = await fetch('/admin/pending-users', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': 'Bearer ' + sessionStorage.getItem('authToken'),
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(result.error || 'Failed to load pending users');
+                }
+                
+                if (!result.pending_users || result.pending_users.length === 0) {
+                    container.innerHTML = '<div class="no-users-message">No pending user approvals at this time</div>';
+                    return;
+                }
+                
+                // Create table to display pending users
+                let html = `
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th>Registration Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                result.pending_users.forEach(user => {
+                    const createdDate = new Date(user.created_at).toLocaleString();
+                    const roleClass = user.role === 'admin' ? 'role-admin' : 'role-client';
+                    
+                    html += `
+                        <tr data-user-id="${user.id}">
+                            <td>${user.username}</td>
+                            <td>${user.email || '-'}</td>
+                            <td><span class="user-role ${roleClass}">${user.role}</span></td>
+                            <td>${createdDate}</td>
+                            <td class="user-actions">
+                                <button class="button success" onclick="approveUser(${user.id})">Approve</button>
+                                <button class="button danger" onclick="rejectUser(${user.id})">Reject</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                html += `
+                        </tbody>
+                    </table>
+                `;
+                
+                container.innerHTML = html;
+            } catch (error) {
+                container.innerHTML = `<div class="error-message">Error: ${error.message}</div>`;
+            }
+        }
+        
+        async function approveUser(userId) {
+            try {
+                const response = await fetch('/admin/approve-user', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + sessionStorage.getItem('authToken'),
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ user_id: userId })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showFeedback('success', 'User approved successfully');
+                    // Remove the user row from the table
+                    const userRow = document.querySelector(`tr[data-user-id="${userId}"]`);
+                    if (userRow) userRow.remove();
+                    
+                    // Check if there are no more users in the table
+                    const tableRows = document.querySelectorAll('.admin-table tbody tr');
+                    if (tableRows.length === 0) {
+                        document.getElementById('pending-users-container').innerHTML = 
+                            '<div class="no-users-message">No pending user approvals at this time</div>';
+                    }
+                } else {
+                    showFeedback('error', result.error || 'Failed to approve user');
+                }
+            } catch (error) {
+                showFeedback('error', 'Error: ' + error.message);
+            }
+        }
+        
+        async function rejectUser(userId) {
+            if (!confirm('Are you sure you want to reject this user? This will delete their account.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/admin/reject-user', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + sessionStorage.getItem('authToken'),
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ user_id: userId })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showFeedback('success', 'User rejected successfully');
+                    // Remove the user row from the table
+                    const userRow = document.querySelector(`tr[data-user-id="${userId}"]`);
+                    if (userRow) userRow.remove();
+                    
+                    // Check if there are no more users in the table
+                    const tableRows = document.querySelectorAll('.admin-table tbody tr');
+                    if (tableRows.length === 0) {
+                        document.getElementById('pending-users-container').innerHTML = 
+                            '<div class="no-users-message">No pending user approvals at this time</div>';
+                    }
+                } else {
+                    showFeedback('error', result.error || 'Failed to reject user');
+                }
+            } catch (error) {
+                showFeedback('error', 'Error: ' + error.message);
+            }
+        }
+
+        function showFeedback(type, message) {
+            // This is a placeholder for the feedback display method
+            // It should match what's used in app.js
+            console.log(`${type}: ${message}`);
+            
+            const existingFeedback = document.querySelector('.feedback-message');
+            if (existingFeedback) {
+                document.body.removeChild(existingFeedback);
+            }
+            
+            const feedback = document.createElement('div');
+            feedback.className = `feedback-message ${type}`;
+            
+            let icon = '';
+            switch(type) {
+                case 'success': icon = '<i class="fas fa-check-circle"></i>'; break;
+                case 'error': icon = '<i class="fas fa-exclamation-circle"></i>'; break;
+                case 'info': icon = '<i class="fas fa-info-circle"></i>'; break;
+            }
+            
+            feedback.innerHTML = `
+                <div class="feedback-icon">${icon}</div>
+                <div class="feedback-text">${message}</div>
+                <button class="feedback-close">&times;</button>
+            `;
+            
+            document.body.appendChild(feedback);
+            
+            setTimeout(() => {
+                feedback.classList.add('visible');
+            }, 10);
+            
+            const closeButton = feedback.querySelector('.feedback-close');
+            closeButton.addEventListener('click', () => {
+                feedback.classList.add('fade-out');
+                setTimeout(() => {
+                    if (feedback.parentNode) {
+                        document.body.removeChild(feedback);
+                    }
+                }, 300);
+            });
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    if (feedback.parentNode) {
+                        feedback.classList.add('fade-out');
+                        setTimeout(() => {
+                            if (feedback.parentNode) {
+                                document.body.removeChild(feedback);
+                            }
+                        }, 300);
+                    }
+                }, 5000);
+            }
+        }
+
+        // Tab switching for admin panel
+        const tabButtons = document.querySelectorAll('.tab-button');
+        tabButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                // Remove active class from all buttons
+                tabButtons.forEach(btn => btn.classList.remove('active'));
+                
+                // Add active class to current button
+                this.classList.add('active');
+                
+                // Hide all tab content
+                const tabContents = document.querySelectorAll('.tab-content');
+                tabContents.forEach(content => content.classList.remove('active'));
+                
+                // Show the corresponding tab content
+                const targetTabId = this.getAttribute('data-tab');
+                document.getElementById(targetTabId).classList.add('active');
+                
+                // Load data based on selected tab
+                if (targetTabId === 'logs-tab') {
+                    loadActionLogs();
+                } else if (targetTabId === 'approvals-tab') {
+                    loadPendingUsers();
+                }
+            });
+        });
+
+        async function loadActionLogs(filters = {}) {
+            const container = document.getElementById('logs-container');
+            container.innerHTML = '<div class="loading">Loading action logs...</div>';
+            
+            try {
+                // Build query string from filters
+                const queryParams = new URLSearchParams();
+                for (const [key, value] of Object.entries(filters)) {
+                    if (value) queryParams.append(key, value);
+                }
+                
+                const response = await fetch('/admin/action-logs?' + queryParams.toString(), {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': 'Bearer ' + sessionStorage.getItem('authToken'),
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to load action logs');
+                }
+                
+                const result = await response.json();
+                
+                if (!result.database_logs || result.database_logs.length === 0) {
+                    container.innerHTML = '<div class="no-data-message">No action logs found</div>';
+                    return;
+                }
+                
+                // Create table to display logs
+                let html = `
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>User</th>
+                                <th>Action</th>
+                                <th>Amount</th>
+                                <th>Details</th>
+                                <th>Timestamp</th>
+                                <th>Cancelled</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                result.database_logs.forEach(log => {
+                    const date = new Date(log.timestamp).toLocaleString();
+                    let cancelInfo = 'No';
+                    
+                    if (log.cancelled_by) {
+                        const cancelDate = new Date(log.cancel_time).toLocaleString();
+                        cancelInfo = `By Admin #${log.cancelled_by} on ${cancelDate}`;
+                    }
+                    
+                    html += `
+                        <tr>
+                            <td>${log.id}</td>
+                            <td>${log.username} (#${log.user_id})</td>
+                            <td>${log.type}</td>
+                            <td>${log.amount ? '$' + log.amount.toFixed(2) : '–'}</td>
+                            <td>${log.metadata}</td>
+                            <td>${date}</td>
+                            <td>${cancelInfo}</td>
+                        </tr>
+                    `;
+                });
+                
+                html += `
+                        </tbody>
+                    </table>
+                `;
+                
+                // Add system logs section if available
+                if (result.system_logs && result.system_logs.length > 0) {
+                    html += `
+                        <div class="system-logs-section">
+                            <h4>System Logs</h4>
+                            <div class="system-logs-container">
+                                <pre>${result.system_logs.join("\n")}</pre>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                container.innerHTML = html;
+            } catch (error) {
+                container.innerHTML = `<div class="error-message">Error: ${error.message}</div>`;
+            }
+        }
+        
+        function applyLogFilters() {
+            const filters = {
+                username: document.getElementById('log-filter-user').value,
+                start_date: document.getElementById('log-filter-start-date').value,
+                end_date: document.getElementById('log-filter-end-date').value,
+                type: document.getElementById('log-filter-type').value
+            };
+            
+            loadActionLogs(filters);
+        }
+        
+        function confirmCancelUserActions() {
+            const userId = document.getElementById('cancel-user-id').value;
+            
+            if (!userId) {
+                showFeedback('error', 'Please enter a user ID');
+                return;
+            }
+            
+            if (confirm(`Are you sure you want to cancel all actions for user ID ${userId}? This action cannot be undone.`)) {
+                cancelUserActions(userId);
+            }
+        }
+        
+        async function cancelUserActions(userId) {
+            try {
+                const response = await fetch('/admin/cancel-user-actions', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + sessionStorage.getItem('authToken'),
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ user_id: parseInt(userId) })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showFeedback('success', `Successfully cancelled ${result.cancelled_count} user actions`);
+                    
+                    // Clear the input field
+                    document.getElementById('cancel-user-id').value = '';
+                    
+                    // Update the response container
+                    const responseContainer = document.getElementById('cancel-actions-response');
+                    responseContainer.innerHTML = `
+                        <div class="operation-status status-success">
+                            <div class="status-icon"><i class="fas fa-check-circle"></i></div>
+                            <div class="status-content">
+                                <h4>Success</h4>
+                                <p>Cancelled ${result.cancelled_count} actions for user #${userId}</p>
+                            </div>
+                        </div>
+                    `;
+                    responseContainer.classList.add('visible');
+                } else {
+                    showFeedback('error', result.error || 'Failed to cancel user actions');
+                }
+            } catch (error) {
+                showFeedback('error', 'Error: ' + error.message);
+            }
+        }
+    </script>
+
+    <style>
+        .admin-tabs {
+            display: flex;
+            border-bottom: 1px solid #e2e8f0;
+            margin-bottom: 20px;
+        }
+        
+        .tab-button {
+            padding: 12px 24px;
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            font-weight: 500;
+            color: #64748b;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .tab-button.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .admin-alert {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            margin-bottom: 20px;
+            background-color: #fff8ed;
+            border-left: 4px solid #f59e0b;
+            border-radius: 4px;
+        }
+        
+        .admin-alert i {
+            font-size: 24px;
+            color: #f59e0b;
+            margin-right: 15px;
+        }
+        
+        .danger-button {
+            background-color: #dc2626;
+        }
+        
+        .danger-button:hover {
+            background-color: #b91c1c;
+        }
+        
+        .system-logs-section {
+            margin-top: 30px;
+        }
+        
+        .system-logs-container {
+            max-height: 400px;
+            overflow-y: auto;
+            background: #1e293b;
+            color: #e2e8f0;
+            border-radius: 6px;
+            padding: 15px;
+        }
+        
+        .system-logs-container pre {
+            margin: 0;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+    </style>
+</body>
+</html>

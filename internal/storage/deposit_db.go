@@ -6,7 +6,6 @@ import (
 	"finance/internal/models"
 	"fmt"
 	"time"
-	
 )
 
 // EnsureDepositsTableExists creates the deposits table if it doesn't exist
@@ -78,12 +77,13 @@ func GetDeposit(clientID int64, bankName string, depositID int64) (models.Deposi
 
 	query := `
 		SELECT deposit_id, client_id, bank_name, amount, interest, 
-		       is_blocked, is_frozen, freeze_duration
+		       is_blocked, is_frozen, freeze_duration, freeze_until
 		FROM deposits
 		WHERE client_id = ? AND bank_name = ? AND deposit_id = ?
 	`
 
 	var isBlocked, isFrozen int
+	var freezeUntil sql.NullTime
 	err := db.QueryRow(query, clientID, bankName, depositID).Scan(
 		&deposit.DepositID,
 		&deposit.ClientID,
@@ -93,6 +93,7 @@ func GetDeposit(clientID int64, bankName string, depositID int64) (models.Deposi
 		&isBlocked,
 		&isFrozen,
 		&deposit.FreezeDuration,
+		&freezeUntil,
 	)
 
 	if err != nil {
@@ -105,7 +106,83 @@ func GetDeposit(clientID int64, bankName string, depositID int64) (models.Deposi
 	deposit.IsBlocked = isBlocked == 1
 	deposit.IsFrozen = isFrozen == 1
 
+	// Check if freezeUntil is valid before assigning
+	if freezeUntil.Valid {
+		deposit.FreezeUntil = freezeUntil.Time
+	}
+
 	return deposit, nil
+}
+
+// GetDepositsByUserID retrieves all deposits for a specific user
+func GetDepositsByUserID(userID int64) ([]models.Deposit, error) {
+	if err := EnsureDepositsTableExists(); err != nil {
+		return nil, err
+	}
+
+	query := `
+		SELECT 
+			deposit_id, 
+			client_id, 
+			bank_name, 
+			amount, 
+			interest, 
+			is_blocked, 
+			is_frozen, 
+			freeze_duration, 
+			freeze_until,
+			created_at,
+			updated_at
+		FROM deposits 
+		WHERE client_id = ?
+		ORDER BY created_at DESC
+	`
+
+	rows, err := db.Query(query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("database query error: %v", err)
+	}
+	defer rows.Close()
+
+	deposits := []models.Deposit{}
+	for rows.Next() {
+		var deposit models.Deposit
+		var isBlocked, isFrozen int
+		var freezeUntil sql.NullTime
+		var createdAt, updatedAt time.Time
+
+		err := rows.Scan(
+			&deposit.DepositID,
+			&deposit.ClientID,
+			&deposit.BankName,
+			&deposit.Amount,
+			&deposit.Interest,
+			&isBlocked,
+			&isFrozen,
+			&deposit.FreezeDuration,
+			&freezeUntil,
+			&createdAt,
+			&updatedAt,
+		)
+
+		if err != nil {
+			return nil, fmt.Errorf("error scanning deposit row: %v", err)
+		}
+
+		deposit.IsBlocked = isBlocked == 1
+		deposit.IsFrozen = isFrozen == 1
+		if freezeUntil.Valid {
+			deposit.FreezeUntil = freezeUntil.Time
+		}
+
+		deposits = append(deposits, deposit)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating deposit rows: %v", err)
+	}
+
+	return deposits, nil
 }
 
 // DeleteDeposit removes a deposit from the database
@@ -185,7 +262,8 @@ func FreezeDeposit(clientID int64, bankName string, depositID int64, freezeDurat
 		return errors.New("deposit is already blocked")
 	}
 
-	unfreezeTime := time.Now().Add(time.Duration(freezeDuration) * time.Hour)
+	// Calculate the time when the freeze will end
+	freezeUntil := time.Now().Add(time.Duration(freezeDuration) * time.Hour)
 
 	query := `
 		UPDATE deposits 
@@ -196,7 +274,7 @@ func FreezeDeposit(clientID int64, bankName string, depositID int64, freezeDurat
 	_, err = db.Exec(
 		query,
 		freezeDuration,
-		unfreezeTime,
+		freezeUntil,
 		time.Now(),
 		clientID,
 		bankName,

@@ -3,49 +3,395 @@
 <head>
     <title>Finance Management - Authentication</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="/static/styles.css">
-    <link rel="stylesheet" href="/static/auth.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        .auth-container {
+            max-width: 450px;
+            margin: 40px auto;
+        }
+        
+        .auth-tabs {
+            display: flex;
+            border-bottom: 1px solid #e2e8f0;
+            margin-bottom: 20px;
+        }
+        
+        .tab-button {
+            padding: 12px 24px;
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            font-weight: 500;
+            font-size: 16px;
+            color: #64748b;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .tab-button.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+        
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.5s;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #334155;
+        }
+        
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-group input:focus, .form-group select:focus {
+            border-color: var(--primary-color);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2);
+        }
+        
+        .form-group input::placeholder {
+            color: #94a3b8;
+        }
+        
+        button {
+            width: 100%;
+            padding: 12px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        button:hover {
+            background: #0284c7;
+        }
+        
+        button.secondary {
+            background: #f1f5f9;
+            color: #334155;
+            border: 1px solid #cbd5e1;
+        }
+        
+        button.secondary:hover {
+            background: #e2e8f0;
+        }
+        
+        .approval-notice {
+            margin-top: 20px;
+            padding: 12px;
+            background: #f0fdfa;
+            border-left: 4px solid #10b981;
+            border-radius: 4px;
+            color: #047857;
+        }
+        
+        .approval-notice i {
+            margin-right: 8px;
+        }
+        
+        .pending-message {
+            text-align: center;
+            padding: 20px 0;
+        }
+        
+        .pending-message i {
+            font-size: 48px;
+            color: #f59e0b;
+            margin-bottom: 16px;
+        }
+        
+        .role-indicator {
+            position: relative;
+            display: inline-block;
+            padding-left: 16px;
+            margin-left: 10px;
+            font-size: 12px;
+        }
+        
+        .role-indicator:before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        
+        .role-client:before {
+            background-color: #10b981;
+        }
+        
+        .role-admin:before {
+            background-color: #ef4444;
+        }
+        
+        .role-operator:before {
+            background-color: #3b82f6;
+        }
+        
+        .form-title {
+            margin-bottom: 24px;
+            text-align: center;
+        }
+        
+        .form-title h2 {
+            margin-bottom: 8px;
+        }
+        
+        .form-title p {
+            color: #64748b;
+        }
+    </style>
 </head>
 <body>
-    <div class="container">
-        <div class="auth-wrapper">
+    <div class="navbar">
+        <div class="logo">Finance Management</div>
+    </div>
+
+    <div class="container auth-container">
+        <div class="card" id="auth-forms">
             <div class="auth-tabs">
-                <button class="auth-tab active" onclick="switchTab('login')">Login</button>
-                <button class="auth-tab" onclick="switchTab('register')">Register</button>
+                <button class="tab-button active" data-tab="login-tab">Login</button>
+                <button class="tab-button" data-tab="register-tab">Register</button>
             </div>
-
+            
             <!-- Login Form -->
-            <div id="login-form" class="auth-form active">
-                <h2>Welcome Back</h2>
-                <div class="input-group">
-                    <input type="text" id="login-nickname" placeholder="Username">
-                    <input type="password" id="login-password" placeholder="Password">
+            <div id="login-tab" class="tab-content active">
+                <div class="form-title">
+                    <h2>Welcome Back!</h2>
+                    <p>Please enter your credentials to access your account</p>
                 </div>
-                <button onclick="login()">Sign In</button>
-                <div class="form-footer">
-                    <a href="#" onclick="showForgotPassword()">Forgot Password?</a>
+                
+                <div class="form-group">
+                    <label for="login_username">Username</label>
+                    <input type="text" id="login_username" placeholder="Enter your username">
+                </div>
+                <div class="form-group">
+                    <label for="login_password">Password</label>
+                    <input type="password" id="login_password" placeholder="Enter your password">
+                </div>
+                <button onclick="loginUser()">
+                    <i class="fas fa-sign-in-alt"></i> Login
+                </button>
+                <div id="login_response" class="response-container"></div>
+            </div>
+            
+            <!-- Register Form -->
+            <div id="register-tab" class="tab-content">
+                <div class="form-title">
+                    <h2>Create Account</h2>
+                    <p>Get started with your new financial management account</p>
+                </div>
+                
+                <div class="form-group">
+                    <label for="register_username">Username</label>
+                    <input type="text" id="register_username" placeholder="Choose a username">
+                </div>
+                <div class="form-group">
+                    <label for="register_password">Password</label>
+                    <input type="password" id="register_password" placeholder="Choose a strong password">
+                </div>
+                <div class="form-group">
+                    <label for="register_email">Email</label>
+                    <input type="email" id="register_email" placeholder="Enter your email address">
+                </div>
+                <div class="form-group">
+                    <label for="register_role">Account Type</label>
+                    <select id="register_role">
+                        <option value="client">Client Account <span class="role-indicator role-client">Standard</span></option>
+                        <option value="operator">Operator Account <span class="role-indicator role-operator">Support</span></option>
+                        <option value="admin">Administrator Account <span class="role-indicator role-admin">Advanced</span></option>
+                    </select>
+                </div>
+                <button onclick="registerUser()">
+                    <i class="fas fa-user-plus"></i> Create Account
+                </button>
+                <div id="register_response" class="response-container"></div>
+                <div class="approval-notice" id="client-approval-notice">
+                    <p><i class="fas fa-info-circle"></i> New client accounts require administrator approval before you can log in.</p>
+                </div>
+                <div class="approval-notice" id="admin-approval-notice" style="display:none; border-left-color: #ef4444; background: #fef2f2; color: #b91c1c;">
+                    <p><i class="fas fa-shield-alt"></i> Administrator accounts have access to all system features and user management.</p>
+                </div>
+                <div class="approval-notice" id="operator-approval-notice" style="display:none; border-left-color: #3b82f6; background: #eff6ff; color: #1d4ed8;">
+                    <p><i class="fas fa-headset"></i> Operators can view transaction statistics and cancel one action per account.</p>
                 </div>
             </div>
-
-            <!-- Register Form -->
-            <div id="register-form" class="auth-form">
-                <h2>Create Account</h2>
-                <div class="input-group">
-                    <input type="text" id="register-name" placeholder="Full Name">
-                    <input type="text" id="register-email" placeholder="Email">
-                    <input type="text" id="register-nickname" placeholder="Username">
-                    <select id="register-role" class="role-select">
-                        <option value="">Select Role</option>
-                        <option value="client">Client</option>
-                        <option value="admin">Admin</option>
-                    </select>
-                    <input type="password" id="register-password" placeholder="Password">
-                    <input type="password" id="register-confirm-password" placeholder="Confirm Password">
+            
+            <!-- Pending Approval Message -->
+            <div id="pending-approval" class="tab-content" style="display: none;">
+                <div class="form-title">
+                    <h2>Account Pending Approval</h2>
+                    <p>Your account is being reviewed by our administrators</p>
                 </div>
-                <button onclick="register()">Create Account</button>
+                <div class="pending-message">
+                    <i class="fas fa-clock"></i>
+                    <p>Username: <span id="pending-username"></span></p>
+                    <p>Your account is waiting for administrator approval.</p>
+                    <p>You'll be able to log in once your account has been approved.</p>
+                </div>
+                <button onclick="checkApprovalStatus()">
+                    <i class="fas fa-sync-alt"></i> Check Status
+                </button>
             </div>
         </div>
     </div>
-    <script src="/static/auth.js"></script>
+
+    <script src="/static/app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Tab switching
+            const tabButtons = document.querySelectorAll('.tab-button');
+            tabButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    tabButtons.forEach(btn => btn.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    const tabContents = document.querySelectorAll('.tab-content');
+                    tabContents.forEach(content => content.classList.remove('active'));
+                    
+                    const targetTabId = this.getAttribute('data-tab');
+                    document.getElementById(targetTabId).classList.add('active');
+                });
+            });
+            
+            // Toggle approval notice based on role selection
+            const roleSelect = document.getElementById('register_role');
+            roleSelect.addEventListener('change', function() {
+                const clientNotice = document.getElementById('client-approval-notice');
+                const adminNotice = document.getElementById('admin-approval-notice');
+                const operatorNotice = document.getElementById('operator-approval-notice');
+                
+                // Hide all notices first
+                clientNotice.style.display = 'none';
+                adminNotice.style.display = 'none';
+                operatorNotice.style.display = 'none';
+                
+                // Show the appropriate notice
+                if (this.value === 'admin') {
+                    adminNotice.style.display = 'block';
+                } else if (this.value === 'operator') {
+                    operatorNotice.style.display = 'block';
+                } else {
+                    clientNotice.style.display = 'block';
+                }
+            });
+            
+            // Check for pending status
+            const urlParams = new URLSearchParams(window.location.search);
+            const pendingUsername = urlParams.get('pending');
+            
+            if (pendingUsername) {
+                // Check if this username is actually pending
+                if (localStorage.getItem('pendingApproval_' + pendingUsername)) {
+                    document.getElementById('pending-username').textContent = pendingUsername;
+                    showPendingApprovalTab(pendingUsername);
+                }
+            } else {
+                // Check if any pending users in localStorage
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key.startsWith('pendingApproval_')) {
+                        const username = key.replace('pendingApproval_', '');
+                        document.getElementById('pending-username').textContent = username;
+                        showPendingApprovalTab(username);
+                        break;
+                    }
+                }
+            }
+        });
+        
+        function showPendingApprovalTab(username) {
+            const pendingUsername = username || document.getElementById('login_username').value;
+            if (document.getElementById('pending-username')) {
+                document.getElementById('pending-username').textContent = pendingUsername;
+            }
+            
+            const tabContents = document.querySelectorAll('.tab-content');
+            tabContents.forEach(content => content.style.display = 'none');
+            
+            document.getElementById('pending-approval').style.display = 'block';
+            
+            const tabButtons = document.querySelectorAll('.tab-button');
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+        }
+        
+        async function checkApprovalStatus() {
+            const usernameElement = document.getElementById('pending-username');
+            const username = usernameElement ? usernameElement.textContent : '';
+            
+            if (!username) {
+                showFeedback('error', 'No pending registration found');
+                return;
+            }
+            
+            try {
+                // Attempt to login with empty password just to check status
+                const response = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        password: 'check-status-only'
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.status === 403 && result.error.includes('pending approval')) {
+                    showFeedback('info', 'Your account is still pending approval');
+                } else if (response.status === 401) {
+                    showFeedback('success', 'Your account has been approved! You can now log in with your password.');
+                    // Clear pending status
+                    localStorage.removeItem('pendingApproval_' + username);
+                    localStorage.removeItem('pendingUser_' + username);
+                    
+                    // Switch back to login tab
+                    document.querySelector('.tab-button[data-tab="login-tab"]').click();
+                    document.getElementById('login_username').value = username;
+                }
+            } catch (error) {
+                showFeedback('error', 'Network error occurred');
+            }
+        }
+    </script>
 </body>
 </html>
