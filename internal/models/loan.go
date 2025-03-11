@@ -38,6 +38,7 @@ const (
 type Loan struct {
 	ID             int64      `json:"id"`
 	UserID         int64      `json:"user_id"`
+	Username       string     `json:"username,omitempty"`
 	Type           LoanType   `json:"type"`
 	Amount         float64    `json:"amount"`
 	Term           int        `json:"term_months"` // Duration in months
@@ -49,6 +50,11 @@ type Loan struct {
 	EndDate        *time.Time `json:"end_date,omitempty"`
 	CreatedAt      time.Time  `json:"created_at"`
 	UpdatedAt      time.Time  `json:"updated_at"`
+	ApprovedBy     *int64     `json:"approved_by,omitempty"`
+	RejectedBy     *int64     `json:"rejected_by,omitempty"`
+	ApprovedAt     *time.Time `json:"approved_at,omitempty"`
+	RejectedAt     *time.Time `json:"rejected_at,omitempty"`
+	CompletedAt    *time.Time `json:"completed_at,omitempty"`
 }
 
 // Payment represents a payment made toward a loan

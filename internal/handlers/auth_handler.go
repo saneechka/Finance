@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	_ "strings"
 	"time"
 
 	"finance/internal/models"
@@ -62,9 +63,9 @@ func RegisterUser(c *gin.Context) {
 		userInput.Role = "client"
 	}
 
-	// Validate role is either 'client', 'admin', or 'operator'
-	if userInput.Role != "client" && userInput.Role != "admin" && userInput.Role != "operator" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "role must be 'client', 'admin', or 'operator'"})
+	// Validate role is either 'client', 'admin', 'operator', or 'manager'
+	if userInput.Role != "client" && userInput.Role != "admin" && userInput.Role != "operator" && userInput.Role != "manager" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "role must be 'client', 'manager', 'admin', or 'operator'"})
 		return
 	}
 
@@ -73,8 +74,8 @@ func RegisterUser(c *gin.Context) {
 		Username: userInput.Username,
 		Email:    userInput.Email,
 		Role:     userInput.Role,
-		// Auto-approve admin and operator accounts, client accounts need approval
-		Approved: userInput.Role == "admin" || userInput.Role == "operator",
+		// Auto-approve admin, operator, and manager accounts, client accounts need approval
+		Approved: userInput.Role == "admin" || userInput.Role == "operator" || userInput.Role == "manager",
 	}
 
 	// Hash the password
@@ -105,6 +106,8 @@ func RegisterUser(c *gin.Context) {
 		message = "Administrator registration successful. You can now log in."
 	} else if user.Role == "operator" {
 		message = "Operator registration successful. You can now log in."
+	} else if user.Role == "manager" {
+		message = "Manager registration successful. You can now log in."
 	} else {
 		message = "Registration successful. Your account is pending approval by an administrator."
 	}
@@ -147,6 +150,8 @@ func LoginUser(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "your account is pending approval by an administrator"})
 		return
 	}
+
+	// if !
 
 	// Create token expiring in 24 hours
 	expirationTime := time.Now().Add(24 * time.Hour)
@@ -264,6 +269,8 @@ func RefreshToken(c *gin.Context) {
 	if err == nil {
 		claims.Subject = user.Username
 	}
+
+
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString(jwtKey)
@@ -397,3 +404,6 @@ func hasRole(userID int, roles ...string) bool {
 	}
 	return false
 }
+
+// getUserID extracts the user ID from the Gin context
+

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Управление кредитами - Finance Management</title>
+    <title>Finance Management - Loans</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="/static/styles.css">
@@ -9,12 +9,20 @@
 </head>
 <body>
     <div class="navbar">
-        <div class="logo">Finance Management</div>
+        <div class="logo">Finance Management - Loans</div>
         <div class="nav-links">
-            <a href="/" class="nav-link"><i class="fas fa-home"></i> Главная</a>
+            <a href="/" class="nav-link">
+                <i class="fas fa-home"></i> Home
+            </a>
+            <a href="/deposits" class="nav-link">
+                <i class="fas fa-piggy-bank"></i> Deposits
+            </a>
         </div>
         <div id="user-info" style="display: none;"></div>
     </div>
+
+    <!-- Loan Notifications Container -->
+    <div id="loan-notifications"></div>
 
     <div class="container">
         <div id="auth-check" style="display: none; text-align: center; padding: 40px;">

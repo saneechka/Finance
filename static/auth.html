@@ -165,6 +165,10 @@
             background-color: #3b82f6;
         }
         
+        .role-manager:before {
+            background-color: #a3e635;
+        }
+        
         .form-title {
             margin-bottom: 24px;
             text-align: center;
@@ -181,7 +185,12 @@
 </head>
 <body>
     <div class="navbar">
-        <div class="logo">Finance Management</div>
+        <div class="logo">Finance Management - Authentication</div>
+        <div class="navbar-actions">
+            <button onclick="clearAllCookies()" class="clear-cookies-btn" title="Clear all cookies">
+                <i class="fas fa-trash"></i> Clear Cookies
+            </button>
+        </div>
     </div>
 
     <div class="container auth-container">
@@ -236,6 +245,7 @@
                     <select id="register_role">
                         <option value="client">Client Account <span class="role-indicator role-client">Standard</span></option>
                         <option value="operator">Operator Account <span class="role-indicator role-operator">Support</span></option>
+                        <option value="manager">Manager Account <span class="role-indicator role-manager">Manager</span></option>
                         <option value="admin">Administrator Account <span class="role-indicator role-admin">Advanced</span></option>
                     </select>
                 </div>
@@ -251,6 +261,9 @@
                 </div>
                 <div class="approval-notice" id="operator-approval-notice" style="display:none; border-left-color: #3b82f6; background: #eff6ff; color: #1d4ed8;">
                     <p><i class="fas fa-headset"></i> Operators can view transaction statistics and cancel one action per account.</p>
+                </div>
+                <div class="approval-notice" id="manager-approval-notice" style="display:none; border-left-color: #a3e635; background: #f7fee7; color: #4d7c0f;">
+                    <p><i class="fas fa-user-tie"></i> Managers can approve credit and installment requests, and have full operator privileges.</p>
                 </div>
             </div>
             
@@ -297,17 +310,21 @@
                 const clientNotice = document.getElementById('client-approval-notice');
                 const adminNotice = document.getElementById('admin-approval-notice');
                 const operatorNotice = document.getElementById('operator-approval-notice');
+                const managerNotice = document.getElementById('manager-approval-notice');
                 
                 // Hide all notices first
                 clientNotice.style.display = 'none';
                 adminNotice.style.display = 'none';
                 operatorNotice.style.display = 'none';
+                managerNotice.style.display = 'none';
                 
                 // Show the appropriate notice
                 if (this.value === 'admin') {
                     adminNotice.style.display = 'block';
                 } else if (this.value === 'operator') {
                     operatorNotice.style.display = 'block';
+                } else if (this.value === 'manager') {
+                    managerNotice.style.display = 'block';
                 } else {
                     clientNotice.style.display = 'block';
                 }
@@ -318,21 +335,37 @@
             const pendingUsername = urlParams.get('pending');
             
             if (pendingUsername) {
-                // Check if this username is actually pending
-                if (localStorage.getItem('pendingApproval_' + pendingUsername)) {
+                // Check if this username is actually pending, using sessionStorage instead of localStorage
+                if (sessionStorage.getItem('pendingApproval_' + pendingUsername)) {
                     document.getElementById('pending-username').textContent = pendingUsername;
                     showPendingApprovalTab(pendingUsername);
                 }
             } else {
-                // Check if any pending users in localStorage
-                for (let i = 0; i < localStorage.length; i++) {
-                    const key = localStorage.key(i);
+                // Check if any pending users in sessionStorage
+                for (let i = 0; i < sessionStorage.length; i++) {
+                    const key = sessionStorage.key(i);
                     if (key.startsWith('pendingApproval_')) {
                         const username = key.replace('pendingApproval_', '');
                         document.getElementById('pending-username').textContent = username;
                         showPendingApprovalTab(username);
                         break;
                     }
+                }
+            }
+            
+            // Check if user is already logged in
+            const authToken = sessionStorage.getItem('authToken');
+            if (authToken) {
+                // Redirect to appropriate page based on role
+                const userRole = sessionStorage.getItem('userRole');
+                if (userRole === 'admin') {
+                    window.location.href = '/admin';
+                } else if (userRole === 'operator') {
+                    window.location.href = '/operator';
+                } else if (userRole === 'manager') {
+                    window.location.href = '/manager';
+                } else {
+                    window.location.href = '/';
                 }
             }
         });
@@ -381,8 +414,8 @@
                 } else if (response.status === 401) {
                     showFeedback('success', 'Your account has been approved! You can now log in with your password.');
                     // Clear pending status
-                    localStorage.removeItem('pendingApproval_' + username);
-                    localStorage.removeItem('pendingUser_' + username);
+                    sessionStorage.removeItem('pendingApproval_' + username);
+                    sessionStorage.removeItem('pendingUser_' + username);
                     
                     // Switch back to login tab
                     document.querySelector('.tab-button[data-tab="login-tab"]').click();

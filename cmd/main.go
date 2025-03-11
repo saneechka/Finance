@@ -56,6 +56,11 @@ func main() {
 		c.File(filepath.Join(staticPath, "operator.html"))
 	})
 
+	// Serve manager page
+	r.GET("/manager", func(c *gin.Context) {
+		c.File(filepath.Join(staticPath, "manager.html"))
+	})
+
 	// Public routes
 	r.GET("/health", handlers.HealthCheck)
 	r.POST("/auth/register", handlers.RegisterUser)
@@ -118,20 +123,11 @@ func main() {
 	// Manager routes
 	managerRoutes := r.Group("/manager")
 	managerRoutes.Use(handlers.AuthMiddleware())
-	{
-		// Inherit operator routes
-		managerRoutes.GET("/statistics", handlers.GetTransactionStatistics)
-		managerRoutes.GET("/transactions", handlers.GetTransactions)
-		managerRoutes.POST("/cancel-transaction", handlers.CancelTransaction)
-
-		// Manager-specific loan routes
-		managerRoutes.GET("/loans", handlers.GetManagerLoans)
-		managerRoutes.POST("/loans/review", handlers.ManagerReviewLoan)
-	}
+	handlers.RegisterManagerRoutes(managerRoutes)
 
 	// Start server
 	log.Println("Starting server on :8081")
-	if err := r.Run(":8081"); err != nil {
+	if err := r.Run(":8082"); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }

@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Finance Management - Manager Panel</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="/static/styles.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+    <div class="navbar">
+        <div class="logo">Finance Management - Manager Panel</div>
+        <div class="navbar-actions">
+            <button onclick="clearAllCookies()" class="clear-cookies-btn" title="Clear all cookies">
+                <i class="fas fa-trash"></i> Clear Cookies
+            </button>
+        </div>
+        <div id="user-info" style="display: none;"></div>
+    </div>
+
+    <!-- Loan Notifications Container -->
+    <div id="loan-notifications"></div>
+
+    <div class="container">
+        <div id="auth-check" style="display: none; text-align: center; padding: 40px;">
+            <h2>Please log in to access the manager panel</h2>
+            <p>You need manager privileges to use this application.</p>
+            <a href="/auth" class="button primary">Go to Login</a>
+        </div>
+
+        <div id="app-content" style="display: none;">
+            <div class="tab-navigation">
+                <button class="tab-button active" data-tab="stats-tab">
+                    <i class="fas fa-chart-line icon"></i>Statistics
+                </button>
+                <button class="tab-button" data-tab="transactions-tab">
+                    <i class="fas fa-exchange-alt icon"></i>Transactions
+                </button>
+                <button class="tab-button" data-tab="loans-tab">
+                    <i class="fas fa-file-invoice-dollar icon"></i>Pending Loans
+                </button>
+            </div>
+
+            <!-- Statistics Tab -->
+            <div id="stats-tab" class="tab-content active">
+                <div class="card">
+                    <h3><i class="fas fa-chart-pie"></i> Transaction Statistics</h3>
+                    <div id="stats-container" class="dashboard-grid">
+                        <div class="stat-card">
+                            <div class="stat-title">Total Transactions</div>
+                            <div class="stat-value" id="total-transactions">Loading...</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-title">Total Amount</div>
+                            <div class="stat-value" id="total-amount">Loading...</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-title">Active Users</div>
+                            <div class="stat-value" id="active-users">Loading...</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-title">Average Transaction</div>
+                            <div class="stat-value" id="avg-transaction">Loading...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Transactions Tab -->
+            <div id="transactions-tab" class="tab-content">
+                <div class="card">
+                    <h3><i class="fas fa-history"></i> Transaction History</h3>
+                    <div class="filters">
+                        <div class="filter-group">
+                            <label for="username-filter">Username:</label>
+                            <input type="text" id="username-filter" placeholder="Filter by username">
+                        </div>
+                        <div class="filter-group">
+                            <label for="type-filter">Type:</label>
+                            <select id="type-filter">
+                                <option value="">All</option>
+                                <option value="transfer">Transfer</option>
+                                <option value="freeze">Freeze</option>
+                                <option value="block">Block</option>
+                                <option value="unblock">Unblock</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="date-filter">Date:</label>
+                            <input type="date" id="date-filter">
+                        </div>
+                        <button id="apply-filters" class="action-btn primary">
+                            <i class="fas fa-filter"></i> Apply Filters
+                        </button>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table id="transactions-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>User</th>
+                                    <th>Type</th>
+                                    <th>Amount</th>
+                                    <th>Date</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="transactions-list">
+                                <tr>
+                                    <td colspan="6" class="loading-row">Loading transactions...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pending Loans Tab -->
+            <div id="loans-tab" class="tab-content">
+                <div class="card">
+                    <h3><i class="fas fa-file-invoice-dollar"></i> Loan Management</h3>
+                    
+                    <div class="filters">
+                        <div class="filter-group">
+                            <label for="loan-status-filter">Status:</label>
+                            <select id="loan-status-filter">
+                                <option value="pending" selected>Pending</option>
+                                <option value="approved">Approved</option>
+                                <option value="rejected">Rejected</option>
+                                <option value="active">Active</option>
+                                <option value="completed">Completed</option>
+                            </select>
+                        </div>
+                        <button id="refresh-loans" class="action-btn primary">
+                            <i class="fas fa-sync"></i> Refresh
+                        </button>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table id="loans-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>User</th>
+                                    <th>Type</th>
+                                    <th>Amount</th>
+                                    <th>Term</th>
+                                    <th>Interest</th>
+                                    <th>Total</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="loans-list">
+                                <tr>
+                                    <td colspan="9" class="loading-row">Loading loans...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cancel Transaction Modal -->
+    <div id="cancel-transaction-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h3><i class="fas fa-ban"></i> Cancel Transaction</h3>
+            <p>Are you sure you want to cancel transaction <span id="cancel-transaction-id"></span>?</p>
+            <p class="warning"><i class="fas fa-exclamation-triangle"></i> This action cannot be undone.</p>
+            <div class="modal-actions">
+                <button class="action-btn secondary" id="cancel-modal-close">Close</button>
+                <button class="action-btn danger" id="confirm-cancel-transaction">
+                    <i class="fas fa-ban"></i> Cancel Transaction
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loan Review Modal -->
+    <div id="review-loan-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h3 id="review-loan-title">Review Loan Request</h3>
+            <div class="loan-review-details">
+                <div class="loan-info-group">
+                    <label>Loan ID:</label>
+                    <span id="review-loan-id"></span>
+                </div>
+                <div class="loan-info-group">
+                    <label>Client:</label>
+                    <span id="review-loan-user"></span>
+                </div>
+                <div class="loan-info-group">
+                    <label>Type:</label>
+                    <span id="review-loan-type"></span>
+                </div>
+                <div class="loan-info-group">
+                    <label>Amount:</label>
+                    <span id="review-loan-amount"></span>
+                </div>
+                <div class="loan-info-group">
+                    <label>Term:</label>
+                    <span id="review-loan-term"></span>
+                </div>
+                <div class="loan-info-group">
+                    <label>Interest Rate:</label>
+                    <span id="review-loan-interest"></span>
+                </div>
+                <div class="loan-info-group">
+                    <label>Monthly Payment:</label>
+                    <span id="review-loan-monthly"></span>
+                </div>
+                <div class="loan-info-group">
+                    <label>Total Payable:</label>
+                    <span id="review-loan-total"></span>
+                </div>
+                <div class="form-group">
+                    <label for="review-loan-comment">Comment (required for rejection):</label>
+                    <textarea id="review-loan-comment" rows="3"></textarea>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="action-btn secondary" id="loan-modal-close">Close</button>
+                <button class="action-btn danger" id="reject-loan">
+                    <i class="fas fa-times"></i> Reject
+                </button>
+                <button class="action-btn success" id="approve-loan">
+                    <i class="fas fa-check"></i> Approve
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+    <script src="/static/manager.js"></script>
+</body>
+</html>

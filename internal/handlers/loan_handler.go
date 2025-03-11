@@ -61,7 +61,7 @@ func RequestLoan(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"message": "loan request submitted successfully",
+		"message": "loan request submitted successfully and is awaiting manager approval",
 		"loan":    loan,
 	})
 }
@@ -106,7 +106,7 @@ func GetLoanDetails(c *gin.Context) {
 	}
 
 	// Check if the user is authorized to view this loan
-	if loan.UserID != int64(userID) && !hasRole(userID, "admin", "operator") {
+	if loan.UserID != int64(userID) && !hasRole(userID, "admin", "operator", "manager") {
 		c.JSON(http.StatusForbidden, gin.H{"error": "you are not authorized to view this loan"})
 		return
 	}
@@ -241,9 +241,9 @@ func ApproveLoan(c *gin.Context) {
 		return
 	}
 
-	// Check if user is admin
-	if !hasRole(adminID, "admin") {
-		c.JSON(http.StatusForbidden, gin.H{"error": "admin privileges required"})
+	// Check if user is admin or manager
+	if !hasRole(adminID, "admin", "manager") {
+		c.JSON(http.StatusForbidden, gin.H{"error": "admin or manager privileges required"})
 		return
 	}
 
@@ -262,16 +262,11 @@ func ApproveLoan(c *gin.Context) {
 		return
 	}
 
-	// Activate the loan immediately after approval
-	if err := db.ActivateLoan(request.LoanID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "loan approved but failed to activate: " + err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "loan approved and activated successfully"})
+	// Do NOT automatically activate the loan - this should be done by manager only
+	c.JSON(http.StatusOK, gin.H{"message": "loan approved successfully. Awaiting manager activation."})
 }
 
-// RejectLoan rejects a loan request (admin only)
+// RejectLoan rejects a loan request (admin or manager only)
 func RejectLoan(c *gin.Context) {
 	adminID, exists := getUserID(c)
 	if !exists {
@@ -279,9 +274,9 @@ func RejectLoan(c *gin.Context) {
 		return
 	}
 
-	// Check if user is admin
-	if !hasRole(adminID, "admin") {
-		c.JSON(http.StatusForbidden, gin.H{"error": "admin privileges required"})
+	// Check if user is admin or manager
+	if !hasRole(adminID, "admin", "manager") {
+		c.JSON(http.StatusForbidden, gin.H{"error": "admin or manager privileges required"})
 		return
 	}
 

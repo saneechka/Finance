@@ -559,60 +559,30 @@ async function registerUser() {
     
     // Basic validation
     if (!data.username || !data.password) {
-        showFeedback('error', 'Пожалуйста, заполните обязательные поля');
+        showFeedback('error', 'Username and password are required');
         return;
     }
     
     try {
-        const response = await fetch('/auth/register', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data)
-        });
-        
-        const result = await response.json();
-        
-        if (response.ok) {
-            // Different behavior based on role
-            if (data.role === 'admin' || data.role === 'operator') {
-                // Admin and operator accounts are auto-approved
-                showFeedback('success', `Регистрация ${data.role === 'admin' ? 'администратора' : 'оператора'} успешна. Вы можете войти в систему.`);
-                
-                // Navigate user to login form
-                if (document.querySelector('.tab-button[data-tab="login-tab"]')) {
-                    document.querySelector('.tab-button[data-tab="login-tab"]').click();
-                    document.getElementById('login_username').value = data.username;
-                } else {
-                    setTimeout(() => {
-                        window.location.href = '/auth';
-                    }, 2000);
-                }
-            } else {
-                // Client accounts need approval - store with username to prevent conflicts
-                localStorage.setItem('pendingUser_' + data.username, data.username);
-                localStorage.setItem('pendingApproval_' + data.username, 'true');
-                
-                showFeedback('success', 'Регистрация успешна! Ваша учетная запись ожидает подтверждения администратором.');
-                
-                // If we're on auth page, show pending approval tab
-                if (document.getElementById('pending-approval')) {
-                    showPendingApprovalTab(data.username);
-                } else {
-                    setTimeout(() => {
-                        window.location.href = '/auth';
-                    }, 2000);
-                }
-            }
+        const response = await makeRequest('/auth/register', 'POST', data);
+        if (response.user && response.user.role === 'client' && !response.user.approved) {
+            // Store pending approval status in sessionStorage instead of localStorage
+            sessionStorage.setItem('pendingApproval_' + data.username, 'true');
+            sessionStorage.setItem('pendingUser_' + data.username, JSON.stringify(response.user));
+            
+            // Redirect to pending approval screen
+            window.location.href = '/auth?pending=' + encodeURIComponent(data.username);
         } else {
-            showFeedback('error', result.error || 'Ошибка регистрации');
+            document.getElementById('register_username').value = '';
+            document.getElementById('register_password').value = '';
+            document.getElementById('register_email').value = '';
+            
+            setTimeout(() => {
+                document.querySelector('.tab-button[data-tab="login-tab"]').click();
+            }, 1500);
         }
-        
-        return { status: response.status, data: result };
     } catch (error) {
-        showFeedback('error', 'Ошибка сети при регистрации');
-        return { status: 500, data: { error: error.message } };
+        console.error('Registration error:', error);
     }
 }
 
@@ -624,79 +594,117 @@ async function loginUser() {
     
     // Basic validation
     if (!data.username || !data.password) {
-        showFeedback('error', 'Пожалуйста, заполните все поля');
+        showFeedback('error', 'Username and password are required');
         return;
     }
     
     try {
-        const response = await fetch('/auth/login', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data)
-        });
+        const response = await makeRequest('/auth/login', 'POST', data);
         
-        const responseData = await response.json();
-        const result = { status: response.status, data: responseData };
+        // Store auth data in sessionStorage instead of localStorage
+        sessionStorage.setItem('authToken', response.data.token);
+        sessionStorage.setItem('userID', response.data.user_id);
+        sessionStorage.setItem('username', response.data.username);
+        sessionStorage.setItem('userRole', response.data.role);
+        sessionStorage.setItem('tokenExpires', response.data.expires);
+       
+        showFeedback('success', 'Login successful! Redirecting...');
         
-        if (response.ok && responseData.token) {
-            // Save token in a way that allows multiple users in different tabs
-            // Use session storage for tab-specific auth
-            sessionStorage.setItem('authToken', responseData.token);
-            sessionStorage.setItem('userID', responseData.user_id);
-            sessionStorage.setItem('username', responseData.username);
-            sessionStorage.setItem('userRole', responseData.role);
-            sessionStorage.setItem('tokenExpires', responseData.expires);
-            
-            // Clear pending approval status if it exists
-            localStorage.removeItem('pendingApproval_' + data.username);
-            localStorage.removeItem('pendingUser_' + data.username);
-            
-            // Update UI for logged in state
-            updateAuthUI(true);
-            
-            showFeedback('success', 'Вы успешно вошли в систему');
-            
-            // Redirect to appropriate page based on role
-            setTimeout(() => {
-                if (responseData.role === 'admin') {
-                    window.location.href = '/admin';
-                } else if (responseData.role === 'operator') {
-                    window.location.href = '/operator';
-                } else {
-                    window.location.href = '/';
-                }
-            }, 1000);
-        } else {
-            if (response.status === 403 && responseData.error && responseData.error.includes('pending approval')) {
-                localStorage.setItem('pendingUser_' + data.username, data.username);
-                localStorage.setItem('pendingApproval_' + data.username, 'true');
-                
-                if (document.getElementById('pending-approval')) {
-                    showPendingApprovalTab(data.username);
-                }
+        // Redirect based on role
+        setTimeout(() => {
+            if (response.data.role === 'admin') {
+                window.location.href = '/admin';
+            } else if (response.data.role === 'operator') {
+                window.location.href = '/operator';
+            } else if (response.data.role === 'manager') {
+                window.location.href = '/manager'; // Redirect managers to manager page
+            } else {
+                window.location.href = '/'; // Clients go to the main page
             }
-            
-            const errorMessage = responseData.error || 'Ошибка авторизации';
-            showFeedback('error', errorMessage);
-        }
-        
-        return result;
+        }, 1500);
     } catch (error) {
-        console.error('Login error:', error);
-        showFeedback('error', 'Ошибка при входе в систему');
-        return { status: 500, data: { error: error.message } };
+        // If user is pending approval, show the pending approval tab
+        if (error.status === 403 && error.data && error.data.error && error.data.error.includes('pending approval')) {
+            const username = document.getElementById('login_username').value;
+            sessionStorage.setItem('pendingApproval_' + username, 'true');
+            showPendingApprovalTab(username);
+        } else {
+            showFeedback('error', error.message || 'Login failed');
+        }
     }
 }
 
+// Cookie Management Functions
+function clearAllCookies() {
+    const cookies = document.cookie.split(";");
+    const domain = window.location.hostname;
+    const paths = ['/', '/auth', '/admin', '/manager', '/api'];
+    let cookiesCleared = 0;
+    
+    for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i];
+        const eqPos = cookie.indexOf("=");
+        const name = eqPos > -1 ? cookie.substring(0, eqPos).trim() : cookie.trim();
+        
+        // Try removing the cookie with various path and domain combinations
+        // because cookies might have been set with specific paths/domains
+        paths.forEach(path => {
+            document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=${path}`;
+            document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=${path};domain=${domain}`;
+            document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=${path};domain=.${domain}`;
+        });
+        
+        cookiesCleared++;
+    }
+    
+    // Also clear session and local storage
+    try {
+        sessionStorage.clear();
+        localStorage.clear();
+    } catch (e) {
+        console.error('Error clearing storage:', e);
+    }
+    
+    showFeedback('success', `${cookiesCleared} cookies cleared successfully. You may need to refresh the page.`);
+    console.log(`Cleared ${cookiesCleared} cookies`);
+    
+    // Refresh the page after a short delay to ensure UI updates
+    setTimeout(() => {
+        window.location.href = "/auth";
+    }, 1500);
+}
+
+function deleteCookie(name, path = '/') {
+    if (getCookie(name)) {
+        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=${path}`;
+        return true;
+    }
+    return false;
+}
+
+function getCookie(name) {
+    const nameEQ = name + "=";
+    const ca = document.cookie.split(';');
+    for (let i = 0; i < ca.length; i++) {
+        let c = ca[i].trim();
+        if (c.indexOf(nameEQ) === 0) {
+            return c.substring(nameEQ.length, c.length);
+        }
+    }
+    return null;
+}
+
+// Update logout function to use cookie clearing
 function logoutUser() {
-    // Clear session-specific storage instead of localStorage
+    // Clear session-specific storage
     sessionStorage.removeItem('authToken');
     sessionStorage.removeItem('userID');
     sessionStorage.removeItem('username');
     sessionStorage.removeItem('userRole');
     sessionStorage.removeItem('tokenExpires');
+    
+    // Clear all cookies
+    clearAllCookies();
     
     // Update UI for logged out state
     updateAuthUI(false);
@@ -803,7 +811,36 @@ async function checkApprovalStatus() {
         return;
     }
     
-    // ...existing code...
+    try {
+        // Attempt to login with empty password just to check status
+        const response = await fetch('/auth/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                username: username,
+                password: 'check-status-only'
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (response.status === 403 && result.error.includes('pending approval')) {
+            showFeedback('info', 'Your account is still pending approval');
+        } else if (response.status === 401) {
+            showFeedback('success', 'Your account has been approved! You can now log in with your password.');
+            // Clear pending status from sessionStorage instead of localStorage
+            sessionStorage.removeItem('pendingApproval_' + username);
+            sessionStorage.removeItem('pendingUser_' + username);
+            
+            // Switch back to login tab
+            document.querySelector('.tab-button[data-tab="login-tab"]').click();
+            document.getElementById('login_username').value = username;
+        }
+    } catch (error) {
+        showFeedback('error', 'Network error occurred');
+    }
 }
 
 // Loan Management Functions
@@ -853,7 +890,7 @@ async function loadLoans() {
                         </span>
                     </div>
                     <div class="loan-content">
-                        <div class="loan-amount">₸${loan.amount.toFixed(2)}</div>
+                        <div class="loan-amount">${loan.amount.toFixed(2)}</div>
                         <div class="loan-details">
                             <div class="loan-detail-item">
                                 <span class="detail-label">Срок</span>
@@ -865,11 +902,11 @@ async function loadLoans() {
                             </div>
                             <div class="loan-detail-item">
                                 <span class="detail-label">Ежемесячный платеж</span>
-                                <span class="detail-value">₸${loan.monthly_payment.toFixed(2)}</span>
+                                <span class="detail-value">${loan.monthly_payment.toFixed(2)}</span>
                             </div>
                             <div class="loan-detail-item">
                                 <span class="detail-label">Общая сумма к оплате</span>
-                                <span class="detail-value">₸${loan.total_payable.toFixed(2)}</span>
+                                <span class="detail-value">${loan.total_payable.toFixed(2)}</span>
                             </div>
                         </div>
                         ${loan.status === 'Active' ? `
@@ -936,6 +973,9 @@ async function createLoan(event) {
         data.interest_rate = parseFloat(customRate);
     }
 
+    // Show processing notification
+    const notificationId = showLoanNotification('processing', `Отправка заявки на ${data.type === 'standard' ? 'кредит' : 'рассрочку'}...`);
+
     try {
         const response = await fetch('/loan/request', {
             method: 'POST',
@@ -951,17 +991,26 @@ async function createLoan(event) {
         if (response.ok) {
             document.getElementById('create-loan-modal').style.display = 'none';
             form.reset();
+            // Update notification to success
+            updateLoanNotification(notificationId, 'success', `Заявка на ${data.type === 'standard' ? 'кредит' : 'рассрочку'} успешно отправлена`);
             showFeedback('success', 'Loan request submitted successfully');
             loadLoans();
         } else {
+            // Update notification to error
+            updateLoanNotification(notificationId, 'error', result.error || 'Ошибка при отправке заявки');
             showFeedback('error', result.error || 'Failed to submit loan request');
         }
     } catch (error) {
+        // Update notification to error
+        updateLoanNotification(notificationId, 'error', error.message || 'Ошибка сети');
         showFeedback('error', error.message);
     }
 }
 
 async function makeLoanPayment(loanId, amount) {
+    // Show processing notification
+    const notificationId = showLoanNotification('processing', `Обработка платежа в размере ${amount.toFixed(2)}...`);
+    
     try {
         const response = await fetch('/loan/payment', {
             method: 'POST',
@@ -978,14 +1027,20 @@ async function makeLoanPayment(loanId, amount) {
         const result = await response.json();
 
         if (response.ok) {
+            // Update notification to success
+            updateLoanNotification(notificationId, 'success', `Платеж в размере ${amount.toFixed(2)} успешно выполнен`);
             showFeedback('success', 'Payment processed successfully');
             loadLoans();
             return true;
         } else {
+            // Update notification to error
+            updateLoanNotification(notificationId, 'error', result.error || 'Ошибка при обработке платежа');
             showFeedback('error', result.error || 'Failed to process payment');
             return false;
         }
     } catch (error) {
+        // Update notification to error
+        updateLoanNotification(notificationId, 'error', error.message || 'Ошибка сети');
         showFeedback('error', error.message);
         return false;
     }
@@ -1152,7 +1207,7 @@ function renderDeposits(deposits) {
                     </span>
                 </div>
                 <div class="card-body">
-                    <div class="amount">₸${(deposit.amount || 0).toFixed(2)}</div>
+                    <div class="amount">${(deposit.amount || 0).toFixed(2)}</div>
                     <div class="details">
                         <p>Процентная ставка: ${deposit.interest || 0}%</p>
                         <p>ID: ${deposit.deposit_id || 'N/A'}</p>
@@ -1246,3 +1301,110 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }, 30000);
 });
+
+// Show loan operation notification banner
+function showLoanNotification(type, message) {
+    // Check if notifications container exists, if not create it
+    let notificationsContainer = document.getElementById('loan-notifications');
+    if (!notificationsContainer) {
+        notificationsContainer = document.createElement('div');
+        notificationsContainer.id = 'loan-notifications';
+        document.body.appendChild(notificationsContainer);
+    }
+    
+    // Create notification element
+    const notificationId = 'loan-notification-' + Date.now();
+    const notification = document.createElement('div');
+    notification.id = notificationId;
+    notification.className = `loan-notification ${type}`;
+    
+    // Set icon based on notification type
+    let icon = '';
+    switch (type) {
+        case 'success':
+            icon = '<i class="fas fa-check-circle"></i>';
+            break;
+        case 'error':
+            icon = '<i class="fas fa-exclamation-circle"></i>';
+            break;
+        case 'processing':
+            icon = '<i class="fas fa-circle-notch fa-spin"></i>';
+            break;
+        default:
+            icon = '<i class="fas fa-info-circle"></i>';
+    }
+    
+    notification.innerHTML = `
+        <div class="notification-icon">${icon}</div>
+        <div class="notification-content">${message}</div>
+        <button class="notification-close" onclick="closeLoanNotification('${notificationId}')">
+            <i class="fas fa-times"></i>
+        </button>
+    `;
+    
+    // Add to notifications container
+    notificationsContainer.appendChild(notification);
+    
+    // Animate in
+    setTimeout(() => notification.classList.add('visible'), 10);
+    
+    // Auto dismiss success notifications after 5 seconds
+    if (type === 'success') {
+        setTimeout(() => closeLoanNotification(notificationId), 5000);
+    }
+    
+    return notificationId;
+}
+
+// Update existing loan notification
+function updateLoanNotification(notificationId, type, message) {
+    const notification = document.getElementById(notificationId);
+    if (!notification) return;
+    
+    // Update class
+    notification.className = `loan-notification ${type} visible`;
+    
+    // Update icon
+    let icon = '';
+    switch (type) {
+        case 'success':
+            icon = '<i class="fas fa-check-circle"></i>';
+            break;
+        case 'error':
+            icon = '<i class="fas fa-exclamation-circle"></i>';
+            break;
+        case 'processing':
+            icon = '<i class="fas fa-circle-notch fa-spin"></i>';
+            break;
+        default:
+            icon = '<i class="fas fa-info-circle"></i>';
+    }
+    
+    // Update content
+    notification.querySelector('.notification-icon').innerHTML = icon;
+    notification.querySelector('.notification-content').textContent = message;
+    
+    // Auto dismiss success notifications after 5 seconds
+    if (type === 'success') {
+        setTimeout(() => closeLoanNotification(notificationId), 5000);
+    }
+}
+
+// Close loan notification
+function closeLoanNotification(notificationId) {
+    const notification = document.getElementById(notificationId);
+    if (!notification) return;
+    
+    // Animate out
+    notification.classList.remove('visible');
+    
+    // Remove after animation completes
+    setTimeout(() => {
+        if (notification && notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+    }, 300);
+}
+
+// Make the closeLoanNotification function globally accessible
+window.closeLoanNotification = closeLoanNotification;

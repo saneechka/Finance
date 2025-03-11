@@ -27,6 +27,7 @@ func EnsureLoansTableExists() error {
 			end_date TIMESTAMP,
 			created_at TIMESTAMP NOT NULL,
 			updated_at TIMESTAMP NOT NULL,
+			approved_by INTEGER,
 			FOREIGN KEY (user_id) REFERENCES users(id)
 		)
 	`
@@ -250,6 +251,7 @@ func ActivateLoan(loanID int64) error {
 		return err
 	}
 
+	// Only managers can activate loans, so it must be in approved status
 	if loan.Status != models.Approved {
 		return fmt.Errorf("loan is not approved (current status: %s)", loan.Status)
 	}
@@ -579,6 +581,156 @@ func GetPendingLoans() ([]*models.Loan, error) {
 		}
 
 		loan.Status = models.LoanStatus(status)
+
+		if startDate.Valid {
+			loan.StartDate = &startDate.Time
+		}
+
+		if endDate.Valid {
+			loan.EndDate = &endDate.Time
+		}
+
+		loans = append(loans, loan)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return loans, nil
+}
+
+// Function to let managers approve loans
+func ManagerApproveLoan(loanID int64, managerID int64) error {
+	if err := EnsureLoansTableExists(); err != nil {
+		return err
+	}
+
+	// Get the loan to make sure it exists and is in pending status
+	loan, err := GetLoan(loanID)
+	if err != nil {
+		return err
+	}
+
+	if loan.Status != models.Pending {
+		return fmt.Errorf("loan is not pending approval (current status: %s)", loan.Status)
+	}
+
+	// Calculate start and end dates
+	now := time.Now()
+	startDate := now
+	endDate := now.AddDate(0, loan.Term, 0)
+
+	// Update the loan status to approved but not yet active
+	query := `
+        UPDATE loans 
+        SET status = ?, start_date = ?, end_date = ?, updated_at = ?, approved_by = ? 
+        WHERE id = ?
+    `
+	_, err = db.Exec(
+		query,
+		models.Approved,
+		startDate,
+		endDate,
+		now,
+		managerID,
+		loanID,
+	)
+	if err != nil {
+		return err
+	}
+
+	// Log the transaction
+	metadata := fmt.Sprintf("Loan #%d approved by manager #%d", loanID, managerID)
+	LogTransaction(loan.UserID, "loan_approved_manager", &loan.Amount, metadata)
+
+	return nil
+}
+
+// Function to let managers reject loans
+func ManagerRejectLoan(loanID int64, managerID int64, reason string) error {
+	if err := EnsureLoansTableExists(); err != nil {
+		return err
+	}
+
+	// Get the loan to make sure it exists and is in pending status
+	loan, err := GetLoan(loanID)
+	if err != nil {
+		return err
+	}
+
+	if loan.Status != models.Pending {
+		return fmt.Errorf("loan is not pending approval (current status: %s)", loan.Status)
+	}
+
+	// Update the loan status
+	now := time.Now()
+	query := `UPDATE loans SET status = ?, updated_at = ? WHERE id = ?`
+	_, err = db.Exec(query, models.Rejected, now, loanID)
+	if err != nil {
+		return err
+	}
+
+	// Log the transaction with the rejection reason
+	metadata := fmt.Sprintf("Loan #%d rejected by manager #%d. Reason: %s", loanID, managerID, reason)
+	LogTransaction(loan.UserID, "loan_rejected_manager", &loan.Amount, metadata)
+
+	return nil
+}
+
+// GetLoansByStatus retrieves loans with a specific status
+func GetLoansByStatus(status models.LoanStatus) ([]*models.Loan, error) {
+	if err := EnsureLoansTableExists(); err != nil {
+		return nil, err
+	}
+
+	query := `
+        SELECT l.id, l.user_id, l.loan_type, l.amount, l.term_months, 
+               l.interest_rate, l.total_payable, l.monthly_payment, l.status,
+               l.start_date, l.end_date, l.created_at, l.updated_at, u.username
+        FROM loans l
+        JOIN users u ON l.user_id = u.id
+        WHERE l.status = ?
+        ORDER BY l.created_at DESC
+    `
+
+	rows, err := db.Query(query, status)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	loans := []*models.Loan{}
+
+	for rows.Next() {
+		loan := &models.Loan{}
+		var startDate, endDate sql.NullTime
+		var username string
+		var status string
+
+		err := rows.Scan(
+			&loan.ID,
+			&loan.UserID,
+			&loan.Type,
+			&loan.Amount,
+			&loan.Term,
+			&loan.InterestRate,
+			&loan.TotalPayable,
+			&loan.MonthlyPayment,
+			&status,
+			&startDate,
+			&endDate,
+			&loan.CreatedAt,
+			&loan.UpdatedAt,
+			&username,
+		)
+
+		if err != nil {
+			return nil, err
+		}
+
+		loan.Status = models.LoanStatus(status)
+		loan.Username = username
 
 		if startDate.Valid {
 			loan.StartDate = &startDate.Time
