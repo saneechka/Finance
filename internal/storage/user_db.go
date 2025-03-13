@@ -57,7 +57,7 @@ func SaveUser(user *models.User) error {
 		user.Password,
 		user.Email,
 		user.Role,
-		boolToInt(user.Approved), // Default is false (0)
+		boolToInt(user.Approved), 
 		user.CreatedAt,
 		user.UpdatedAt,
 	)
@@ -76,7 +76,7 @@ func SaveUser(user *models.User) error {
 	return nil
 }
 
-// GetUserByUsername retrieves a user by their username
+//for future
 func GetUserByUsername(username string) (*models.User, error) {
 	// Ensure user table exists
 	if err := EnsureUserTableExists(); err != nil {
@@ -109,38 +109,6 @@ func GetUserByUsername(username string) (*models.User, error) {
 	return user, nil
 }
 
-// GetUserByID retrieves a user by their ID
-func GetUserByID(id int) (*models.User, error) {
-	// Ensure user table exists
-	if err := EnsureUserTableExists(); err != nil {
-		return nil, err
-	}
-
-	user := &models.User{}
-	query := `
-		SELECT id, username, password, email, role, approved, created_at, updated_at
-		FROM users
-		WHERE id = ?
-	`
-	var approved int
-	err := db.QueryRow(query, id).Scan(
-		&user.ID,
-		&user.Username,
-		&user.Password,
-		&user.Email,
-		&user.Role,
-		&approved,
-		&user.CreatedAt,
-		&user.UpdatedAt,
-	)
-
-	if err != nil {
-		return nil, err
-	}
-
-	user.Approved = approved == 1
-	return user, nil
-}
 
 // IsUserAdmin checks if a user has administrator privileges
 func IsUserAdmin(userID int) (bool, error) {

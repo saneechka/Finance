@@ -649,10 +649,6 @@ func ManagerApproveLoan(loanID int64, managerID int64) error {
 
 // Function to let managers reject loans
 func ManagerRejectLoan(loanID int64, managerID int64, reason string) error {
-	if err := EnsureLoansTableExists(); err != nil {
-		return err
-	}
-
 	// Get the loan to make sure it exists and is in pending status
 	loan, err := GetLoan(loanID)
 	if err != nil {
@@ -665,13 +661,13 @@ func ManagerRejectLoan(loanID int64, managerID int64, reason string) error {
 
 	// Update the loan status
 	now := time.Now()
-	query := `UPDATE loans SET status = ?, updated_at = ? WHERE id = ?`
-	_, err = db.Exec(query, models.Rejected, now, loanID)
+	query := `UPDATE loans SET status = ?, updated_at = ?, rejection_reason = ?, rejected_by = ? WHERE id = ?`
+	_, err = db.Exec(query, models.Rejected, now, reason, managerID, loanID)
 	if err != nil {
 		return err
 	}
 
-	// Log the transaction with the rejection reason
+	// Log the transaction
 	metadata := fmt.Sprintf("Loan #%d rejected by manager #%d. Reason: %s", loanID, managerID, reason)
 	LogTransaction(loan.UserID, "loan_rejected_manager", &loan.Amount, metadata)
 

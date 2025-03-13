@@ -21,7 +21,7 @@
     <div id="loan-notifications"></div>
 
     <div class="container">
-        <!-- Authentication check message -->
+      
         <div id="auth-check" style="display: none; text-align: center; padding: 40px;">
             <h2>Please log in to access your account</h2>
             <p>You need to be logged in to use this application.</p>
@@ -31,39 +31,39 @@
         <div id="app-content" style="display: none;">
             <div class="tab-navigation">
                 <button class="tab-button active" data-tab="loans-tab">
-                    <i class="fas fa-file-invoice-dollar icon"></i>Loans
+                    <i class="fas fa-file-invoice-dollar icon"></i>Кредиты
                 </button>
                 <button class="tab-button" data-tab="deposits-tab">
-                    <i class="fas fa-piggy-bank icon"></i>Deposits
+                    <i class="fas fa-piggy-bank icon"></i>Вклады
                 </button>
             </div>
 
             <!-- Loans Tab -->
             <div id="loans-tab" class="tab-content active">
                 <div class="page-header">
-                    <h1>Your Loans</h1>
+                    <h1>Ваши кредиты</h1>
                     <button class="primary-button" onclick="showCreateLoanModal()">
-                        <i class="fas fa-plus"></i> New Loan
+                        <i class="fas fa-plus"></i> Новый кредит
                     </button>
                 </div>
                 <div id="loans-list" class="loans-list">
                     <div class="loading">
                         <i class="fas fa-spinner fa-spin"></i>
-                        <p>Loading your loans...</p>
+                        <p>Загрузка ваших кредитов...</p>
                     </div>
                 </div>
             </div>
 
-            <!-- Deposits Tab -->
+   
             <div id="deposits-tab" class="tab-content">
                 <div class="page-header">
-                    <h1>Your Deposits</h1>
+                    <h1>Ваши вклады</h1>
                     <button class="primary-button" onclick="showCreateDepositModal()">
-                        <i class="fas fa-plus"></i> New Deposit
+                        <i class="fas fa-plus"></i> Новый вклад
                     </button>
                 </div>
                 <div id="deposits-list">
-                    <!-- Deposit cards will be loaded here -->
+            
                 </div>
             </div>
         </div>

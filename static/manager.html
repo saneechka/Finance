@@ -169,8 +169,11 @@
         <div class="modal-content">
             <span class="close-modal">&times;</span>
             <h3><i class="fas fa-ban"></i> Cancel Transaction</h3>
-            <p>Are you sure you want to cancel transaction <span id="cancel-transaction-id"></span>?</p>
-            <p class="warning"><i class="fas fa-exclamation-triangle"></i> This action cannot be undone.</p>
+            <p>Are you sure you want to cancel transaction <span id="cancel-transaction-id" class="highlight-text"></span>?</p>
+            <div class="transaction-details" id="transaction-details-container">
+                <!-- Transaction details will be loaded here -->
+            </div>
+            <p class="warning"><i class="fas fa-exclamation-triangle"></i> This action cannot be undone and will revert the effects of this transaction.</p>
             <div class="modal-actions">
                 <button class="action-btn secondary" id="cancel-modal-close">Close</button>
                 <button class="action-btn danger" id="confirm-cancel-transaction">

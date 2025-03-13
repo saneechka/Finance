@@ -71,20 +71,20 @@ setInterval(async function() {
         const expiresDate = new Date(tokenExpires);
         const now = new Date();
         
-        // If token expires in less than 5 minutes, refresh it
+       
         if ((expiresDate - now) < (5 * 60 * 1000)) {
             await refreshToken();
         }
     }
-}, 60000); // Check every minute
+}, 60000); 
 
-// Format timestamp for better readability
+
 function formatTimestamp(timestamp) {
     const date = new Date(timestamp);
     return date.toLocaleString();
 }
 
-// Clear all response containers
+
 function clearAllResponses() {
     const responseContainers = document.querySelectorAll('.response-container');
     responseContainers.forEach(container => {
@@ -94,7 +94,7 @@ function clearAllResponses() {
     showFeedback('success', 'All responses cleared');
 }
 
-// Clear request log
+
 function clearRequestLog() {
     const requestLog = document.getElementById('request-log-entries');
     if (requestLog) {
@@ -103,7 +103,7 @@ function clearRequestLog() {
     }
 }
 
-// Load user deposits
+
 async function loadUserDeposits() {
     const depositsContainer = document.getElementById('deposits-list');
     depositsContainer.innerHTML = '<div class="loading">Loading your deposits...</div>';
@@ -138,7 +138,7 @@ async function loadUserDeposits() {
     }
 }
 
-// Create a deposit card element
+
 function createDepositCard(deposit) {
     const card = document.createElement('div');
     card.className = 'deposit-card';
@@ -194,9 +194,9 @@ function createDepositCard(deposit) {
     return card;
 }
 
-// Show transfer modal
+
 function showTransferModal(depositId) {
-    // Create modal if it doesn't exist
+
     let modal = document.getElementById('transfer-modal');
     if (!modal) {
         modal = document.createElement('div');
@@ -219,17 +219,16 @@ function showTransferModal(depositId) {
         `;
         document.body.appendChild(modal);
         
-        // Add event listener to close button
+     
         modal.querySelector('.close-modal').addEventListener('click', function() {
             modal.style.display = 'none';
         });
     }
-    
-    // Set the deposit ID and show the modal
+
     modal.dataset.depositId = depositId;
     modal.style.display = 'block';
     
-    // Handle transfer confirmation
+  
     document.getElementById('confirm-transfer').onclick = function() {
         const toAccount = document.getElementById('modal_to_account').value;
         const amount = document.getElementById('modal_transfer_amount').value;
@@ -240,7 +239,7 @@ function showTransferModal(depositId) {
 
 // Show freeze modal
 function showFreezeModal(depositId) {
-    // Create modal if it doesn't exist
+ 
     let modal = document.getElementById('freeze-modal');
     if (!modal) {
         modal = document.createElement('div');
@@ -259,17 +258,17 @@ function showFreezeModal(depositId) {
         `;
         document.body.appendChild(modal);
         
-        // Add event listener to close button
+      
         modal.querySelector('.close-modal').addEventListener('click', function() {
             modal.style.display = 'none';
         });
     }
     
-    // Set the deposit ID and show the modal
+
     modal.dataset.depositId = depositId;
     modal.style.display = 'block';
     
-    // Handle freeze confirmation
+
     document.getElementById('confirm-freeze').onclick = function() {
         const duration = document.getElementById('modal_freeze_duration').value;
         freezeDepositCard(depositId, duration);
@@ -277,9 +276,9 @@ function showFreezeModal(depositId) {
     };
 }
 
-// Functions to handle deposit actions from cards
+
 async function transferFromDeposit(depositId, toAccount, amount) {
-    // Get the bank name from the deposit card
+ 
     const depositCard = document.querySelector(`.deposit-card[data-id="${depositId}"]`);
     const bankName = depositCard.querySelector('.deposit-bank').textContent;
     
@@ -302,7 +301,7 @@ async function transferFromDeposit(depositId, toAccount, amount) {
         
         if (response.ok) {
             showFeedback('success', 'Transfer successful');
-            loadUserDeposits(); // Reload deposits to show updated amounts
+            loadUserDeposits(); 
         } else {
             showFeedback('error', `Transfer failed: ${data.message}`);
         }
@@ -312,7 +311,7 @@ async function transferFromDeposit(depositId, toAccount, amount) {
 }
 
 async function freezeDepositCard(depositId, duration) {
-    // Get the bank name from the deposit card
+  
     const depositCard = document.querySelector(`.deposit-card[data-id="${depositId}"]`);
     const bankName = depositCard.querySelector('.deposit-bank').textContent;
     
@@ -334,7 +333,7 @@ async function freezeDepositCard(depositId, duration) {
         
         if (response.ok) {
             showFeedback('success', 'Deposit frozen successfully');
-            loadUserDeposits(); // Reload deposits to reflect changes
+            loadUserDeposits(); 
         } else {
             showFeedback('error', `Failed to freeze deposit: ${data.message}`);
         }
@@ -344,12 +343,12 @@ async function freezeDepositCard(depositId, duration) {
 }
 
 async function unfreezeDeposit(depositId) {
-    // This would require a backend endpoint to unfreeze a deposit
+ 
     showFeedback('warning', 'Unfreeze functionality not implemented yet');
 }
 
 async function blockDepositCard(depositId) {
-    // Get the bank name from the deposit card
+
     const depositCard = document.querySelector(`.deposit-card[data-id="${depositId}"]`);
     const bankName = depositCard.querySelector('.deposit-bank').textContent;
     
@@ -370,7 +369,7 @@ async function blockDepositCard(depositId) {
         
         if (response.ok) {
             showFeedback('success', 'Deposit blocked successfully');
-            loadUserDeposits(); // Reload deposits to reflect changes
+            loadUserDeposits(); 
         } else {
             showFeedback('error', `Failed to block deposit: ${data.message}`);
         }
@@ -380,7 +379,7 @@ async function blockDepositCard(depositId) {
 }
 
 async function unblockDepositCard(depositId) {
-    // Get the bank name from the deposit card
+
     const depositCard = document.querySelector(`.deposit-card[data-id="${depositId}"]`);
     const bankName = depositCard.querySelector('.deposit-bank').textContent;
     
@@ -401,7 +400,7 @@ async function unblockDepositCard(depositId) {
         
         if (response.ok) {
             showFeedback('success', 'Deposit unblocked successfully');
-            loadUserDeposits(); // Reload deposits to reflect changes
+            loadUserDeposits(); 
         } else {
             showFeedback('error', `Failed to unblock deposit: ${data.message}`);
         }
@@ -417,7 +416,6 @@ function confirmDeleteDeposit(depositId) {
 }
 
 async function deleteDepositCard(depositId) {
-    // Get the bank name from the deposit card
     const depositCard = document.querySelector(`.deposit-card[data-id="${depositId}"]`);
     const bankName = depositCard.querySelector('.deposit-bank').textContent;
     
@@ -438,9 +436,7 @@ async function deleteDepositCard(depositId) {
         
         if (response.ok) {
             showFeedback('success', 'Deposit deleted successfully');
-            depositCard.remove(); // Remove the card from the UI
-            
-            // If no deposits left, show the no deposits message
+            depositCard.remove(); 
             if (document.querySelectorAll('.deposit-card').length === 0) {
                 document.getElementById('deposits-list').innerHTML = 
                     '<div class="no-deposits">You have no deposits yet. Create one from the Deposit Management tab.</div>';
@@ -453,9 +449,9 @@ async function deleteDepositCard(depositId) {
     }
 }
 
-// Display feedback messages
+
 function showFeedback(type, message) {
-    // Implementation of the feedback display method would go here
+  
     console.log(`${type}: ${message}`);
-    // This should be filled in with appropriate feedback UI code
+   
 }

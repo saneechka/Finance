@@ -10,8 +10,8 @@ import (
 	"io"
 	"os"
 )
-
 var encryptionKey []byte
+
 
 // InitEncryption initializes encryption with a key from environment or generates one
 func InitEncryption() error {

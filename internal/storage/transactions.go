@@ -8,11 +8,12 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"finance/internal/utils"
 )
- 
+
 // TransactionStatistics represents transaction statistics data
 type TransactionStatistics struct {
 	TotalTransactions int     `json:"total_transactions"`
@@ -62,15 +63,22 @@ func EnsureTransactionTablesExist() error {
 		return err
 	}
 
-	// Create cancellation tracking table
+	// Drop the old cancellation tracking table if it exists to update the schema
+	dropTableQuery := `
+        DROP TABLE IF EXISTS cancellation_tracking
+    `
+	if _, err := db.Exec(dropTableQuery); err != nil {
+		return err
+	}
+
+	// Create cancellation tracking table with transaction_id as the only unique constraint
 	cancellationTrackingQuery := `
         CREATE TABLE IF NOT EXISTS cancellation_tracking (
             operator_id INTEGER NOT NULL,
             user_id INTEGER NOT NULL,
             deposit_id INTEGER NOT NULL,
-            transaction_id INTEGER NOT NULL,
-            cancelled_at TIMESTAMP NOT NULL,
-            PRIMARY KEY (operator_id, user_id, deposit_id)
+            transaction_id INTEGER NOT NULL UNIQUE,
+            cancelled_at TIMESTAMP NOT NULL
         )
     `
 	_, err := db.Exec(cancellationTrackingQuery)
@@ -270,6 +278,21 @@ func CancelTransaction(transactionID int64, operatorID int) error {
 	}
 	defer tx.Rollback()
 
+	// Check if this specific transaction has already been cancelled
+	var cancelCount int
+	err = tx.QueryRow(`
+        SELECT COUNT(*) FROM cancellation_tracking
+        WHERE transaction_id = ?
+    `, transactionID).Scan(&cancelCount)
+
+	if err != nil {
+		return err
+	}
+
+	if cancelCount > 0 {
+		return errors.New("this transaction has already been cancelled")
+	}
+
 	// Get transaction details
 	var txDetails Transaction
 	var metadata string
@@ -292,30 +315,18 @@ func CancelTransaction(transactionID int64, operatorID int) error {
 		return errors.New("delete operations cannot be cancelled")
 	}
 
-	// Check if this operator has already used their cancellation for this user/deposit
+	// Get deposit ID (needed for record keeping)
 	var depositID int64
 
 	// Extract deposit ID from metadata
 	if err := tx.QueryRow(`SELECT deposit_id FROM deposits WHERE client_id = ?`, txDetails.UserID).Scan(&depositID); err != nil {
 		if err == sql.ErrNoRows {
-			return errors.New("deposit not found for this user")
+			// If no deposit found, create a dummy ID for tracking purposes
+			depositID = txDetails.UserID*1000 + 999
+		} else {
+			// For real errors, return the error
+			return err
 		}
-		return err
-	}
-
-	// Check if cancellation has already been used
-	var count int
-	err = tx.QueryRow(`
-        SELECT COUNT(*) FROM cancellation_tracking
-        WHERE operator_id = ? AND user_id = ? AND deposit_id = ?
-    `, operatorID, txDetails.UserID, depositID).Scan(&count)
-
-	if err != nil {
-		return err
-	}
-
-	if count > 0 {
-		return errors.New("you have already used your cancellation for this account")
 	}
 
 	// Perform cancellation based on transaction type
@@ -324,54 +335,64 @@ func CancelTransaction(transactionID int64, operatorID int) error {
 		// Reverse the transfer
 		// This would require more details about which accounts were involved
 		// For simplicity, we'll just log the cancellation
+		// Not returning an error as we're just logging this cancellation
 
 	case "freeze":
 		// Unfreeze the deposit
 		_, err = tx.Exec(`
-            UPDATE deposits
-            SET is_frozen = 0, freeze_duration = 0, freeze_until = NULL
-            WHERE client_id = ? AND deposit_id = ?
-        `, txDetails.UserID, depositID)
+			UPDATE deposits
+			SET is_frozen = 0, freeze_duration = 0, freeze_until = NULL
+			WHERE client_id = ? AND deposit_id = ?
+		`, txDetails.UserID, depositID)
 
 	case "block":
 		// Unblock the deposit
 		_, err = tx.Exec(`
-            UPDATE deposits
-            SET is_blocked = 0
-            WHERE client_id = ? AND deposit_id = ?
-        `, txDetails.UserID, depositID)
+			UPDATE deposits
+			SET is_blocked = 0
+			WHERE client_id = ? AND deposit_id = ?
+		`, txDetails.UserID, depositID)
 
 	case "unblock":
 		// Re-block the deposit
 		_, err = tx.Exec(`
-            UPDATE deposits
-            SET is_blocked = 1
-            WHERE client_id = ? AND deposit_id = ?
-        `, txDetails.UserID, depositID)
+			UPDATE deposits
+			SET is_blocked = 1
+			WHERE client_id = ? AND deposit_id = ?
+		`, txDetails.UserID, depositID)
+
+	case "create":
+		// Simply log cancellation for deposit creation
+		// We don't actually delete the deposit
 
 	default:
-		return errors.New("unsupported transaction type for cancellation")
+		// Support all transaction types but log which one was cancelled
+		log.Printf("Cancelling transaction of type: %s", txDetails.Type)
 	}
 
 	if err != nil {
 		return err
 	}
 
-	// Record the cancellation
+	// Record the cancellation - transaction_id is the unique identifier
 	_, err = tx.Exec(`
-        INSERT INTO cancellation_tracking (operator_id, user_id, deposit_id, transaction_id, cancelled_at)
-        VALUES (?, ?, ?, ?, ?)
-    `, operatorID, txDetails.UserID, depositID, transactionID, time.Now())
+		INSERT INTO cancellation_tracking (operator_id, user_id, deposit_id, transaction_id, cancelled_at)
+		VALUES (?, ?, ?, ?, ?)
+	`, operatorID, txDetails.UserID, depositID, transactionID, time.Now())
 
 	if err != nil {
+		// If there's a unique constraint violation, it means this transaction has already been cancelled
+		if strings.Contains(err.Error(), "UNIQUE constraint") {
+			return errors.New("this transaction has already been cancelled")
+		}
 		return err
 	}
 
 	// Log the cancellation as a new transaction
 	_, err = tx.Exec(`
-        INSERT INTO transaction_history (user_id, transaction_type, amount, metadata, timestamp)
-        VALUES (?, ?, ?, ?, ?)
-    `, txDetails.UserID, "cancel_"+txDetails.Type, txDetails.Amount,
+		INSERT INTO transaction_history (user_id, transaction_type, amount, metadata, timestamp)
+		VALUES (?, ?, ?, ?, ?)
+	`, txDetails.UserID, "cancel_"+txDetails.Type, txDetails.Amount,
 		fmt.Sprintf("Cancelled by operator %d, original tx: %d", operatorID, transactionID),
 		time.Now())
 
@@ -595,13 +616,18 @@ func CancelAllUserActions(userID, adminID int) (int, error) {
 			return 0, err
 		}
 
-		// Record the cancellation
+		// Record the cancellation - using transaction_id as the unique key
 		_, err = tx.Exec(`
 			INSERT INTO cancellation_tracking (operator_id, user_id, deposit_id, transaction_id, cancelled_at)
 			VALUES (?, ?, ?, ?, ?)
 		`, adminID, userID, depositID, txID, time.Now())
 
 		if err != nil {
+			// Check if this is a unique constraint error (transaction already cancelled)
+			if strings.Contains(err.Error(), "UNIQUE constraint") {
+				// Skip this transaction and continue with the next
+				continue
+			}
 			return 0, err
 		}
 
@@ -623,4 +649,158 @@ func CancelAllUserActions(userID, adminID int) (int, error) {
 	}
 
 	return cancelledTransactions, nil
+}
+
+// RecordUserAction stores a user action in the database
+func RecordUserAction(userID int, actionType string, amount float64, metadata string) (int64, error) {
+	result, err := db.Exec(`
+		INSERT INTO user_actions (user_id, type, amount, metadata, unix_timestamp)
+		VALUES (?, ?, ?, ?, UNIX_TIMESTAMP())
+	`, userID, actionType, amount, metadata)
+
+	if err != nil {
+		return 0, err
+	}
+
+	return result.LastInsertId()
+}
+
+// CreateReverseTransfer creates a transfer in the opposite direction
+func CreateReverseTransfer(fromAccount, toAccount int, amount float64, userID int, reason string) error {
+	// Start a transaction
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Create metadata for the reversal
+	metadata := map[string]interface{}{
+		"from_account": fromAccount,
+		"to_account":   toAccount,
+		"amount":       amount,
+		"reason":       reason,
+		"reversal":     true,
+	}
+
+	metadataJSON, err := json.Marshal(metadata)
+	if err != nil {
+		return err
+	}
+
+	// Record the reverse transfer action
+	_, err = tx.Exec(`
+		INSERT INTO user_actions (user_id, type, amount, metadata, unix_timestamp)
+		VALUES (?, ?, ?, ?, UNIX_TIMESTAMP())
+	`, userID, "reverse_transfer", amount, string(metadataJSON))
+
+	if err != nil {
+		return err
+	}
+
+	// Update account balances
+	// Note: In a real system, you would update the actual account balances here
+
+	// Commit the transaction
+	return tx.Commit()
+}
+
+// GetTransactionCountsByType returns the count of transactions by type within a date range
+func GetTransactionCountsByType(startDate, endDate time.Time) (map[string]int, error) {
+	if err := EnsureTransactionTablesExist(); err != nil {
+		return nil, err
+	}
+
+	query := `
+		SELECT transaction_type, COUNT(*) as count
+		FROM transaction_history
+		WHERE timestamp >= ? AND timestamp <= ?
+		GROUP BY transaction_type
+		ORDER BY count DESC
+	`
+
+	rows, err := db.Query(query, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	typeCounts := make(map[string]int)
+	for rows.Next() {
+		var txType string
+		var count int
+
+		if err := rows.Scan(&txType, &count); err != nil {
+			return nil, err
+		}
+
+		typeCounts[txType] = count
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return typeCounts, nil
+}
+
+// GetRecentTransactions returns the most recent transactions in the system
+func GetRecentTransactions(limit int) ([]Transaction, error) {
+	transactions := []Transaction{}
+
+	// Ensure tables exist
+	if err := EnsureTransactionTablesExist(); err != nil {
+		return transactions, err
+	}
+
+	// Get recent transactions with user details
+	query := `
+		SELECT th.id, th.user_id, u.username, th.transaction_type, th.amount, th.timestamp,
+			   (NOT EXISTS (SELECT 1 FROM cancellation_tracking ct WHERE ct.transaction_id = th.id)) AS can_cancel
+		FROM transaction_history th
+		LEFT JOIN users u ON th.user_id = u.id
+		ORDER BY th.timestamp DESC
+		LIMIT ?
+	`
+
+	rows, err := db.Query(query, limit)
+	if err != nil {
+		return transactions, err
+	}
+	defer rows.Close()
+
+	// Process rows
+	for rows.Next() {
+		var tx Transaction
+		var canCancel bool
+
+		err := rows.Scan(
+			&tx.ID,
+			&tx.UserID,
+			&tx.Username,
+			&tx.Type,
+			&tx.Amount,
+			&tx.Timestamp,
+			&canCancel,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// Set cancellable flag (excluding delete operations)
+		tx.CanCancel = canCancel && tx.Type != "delete"
+
+		transactions = append(transactions, tx)
+	}
+
+	if err = rows.Err(); err != nil {
+		return transactions, err
+	}
+
+	return transactions, nil
 }

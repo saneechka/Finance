@@ -20,10 +20,10 @@ import (
 var jwtKey []byte
 
 func init() {
-	// Get JWT secret key from environment variable or use default
+	
 	secretKey := os.Getenv("JWT_SECRET_KEY")
 	if secretKey == "" {
-		secretKey = "your_secret_key" // Default key for development
+		secretKey = "your_secret_key" 
 		log.Println("Warning: Using default JWT secret key. Set JWT_SECRET_KEY environment variable in production.")
 	}
 	jwtKey = []byte(secretKey)
@@ -33,6 +33,7 @@ type Claims struct {
 	UserID int `json:"user_id"`
 	jwt.RegisteredClaims
 }
+
 
 func RegisterUser(c *gin.Context) {
 	var userInput struct {
@@ -48,17 +49,17 @@ func RegisterUser(c *gin.Context) {
 		return
 	}
 
-	// Log registration attempt for debugging
+
 	log.Printf("Registration attempt: username=%s, email=%s, role=%s",
 		userInput.Username, userInput.Email, userInput.Role)
 
-	// Validate username and password
+//validate password
 	if userInput.Username == "" || userInput.Password == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "username and password are required"})
 		return
 	}
 
-	// Set default role if not provided
+//default case 
 	if userInput.Role == "" {
 		userInput.Role = "client"
 	}
@@ -74,11 +75,10 @@ func RegisterUser(c *gin.Context) {
 		Username: userInput.Username,
 		Email:    userInput.Email,
 		Role:     userInput.Role,
-		// Auto-approve admin, operator, and manager accounts, client accounts need approval
 		Approved: userInput.Role == "admin" || userInput.Role == "operator" || userInput.Role == "manager",
 	}
 
-	// Hash the password
+
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(userInput.Password), bcrypt.DefaultCost)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to hash password"})
@@ -151,7 +151,7 @@ func LoginUser(c *gin.Context) {
 		return
 	}
 
-	// if !
+
 
 	// Create token expiring in 24 hours
 	expirationTime := time.Now().Add(24 * time.Hour)
@@ -391,19 +391,6 @@ func RejectUser(c *gin.Context) {
 }
 
 // Check if user has privileges to access certain functionality
-func hasRole(userID int, roles ...string) bool {
-	user, err := db.GetUserByID(userID)
-	if err != nil {
-		return false
-	}
-
-	for _, role := range roles {
-		if user.Role == role {
-			return true
-		}
-	}
-	return false
-}
 
 // getUserID extracts the user ID from the Gin context
 

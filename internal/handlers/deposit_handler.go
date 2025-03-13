@@ -61,6 +61,7 @@ func CreateDeposit(c *gin.Context) {
 		return
 	}
 
+	
 	if deposit.Amount <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "amount must be greater than 0"})
 		return

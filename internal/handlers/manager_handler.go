@@ -6,83 +6,29 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"time"
+	_ "time"
 
 	"github.com/gin-gonic/gin"
 )
 
-// RegisterManagerRoutes registers all manager endpoints
+// RegisterManagerRoutes sets up the routes for the manager
 func RegisterManagerRoutes(router *gin.RouterGroup) {
-	// Operator functionality (reuse operator handlers)
-	router.GET("/transactions/statistics", GetTransactionStatistics)
+	router.GET("/statistics", GetTransactionStatistics)
 	router.GET("/transactions", GetTransactions)
-	router.POST("/transactions/cancel", CancelTransaction)
+	router.POST("/transactions/cancel", CancelLastOperation) // Use the same handler as operator
+	router.GET("/users/:id/last-action", GetUserLastAction)  // Fix this reference to match the actual function name
 
-	// Loan management
-	router.POST("/loans/review", ManagerReviewLoan)
-	router.GET("/loans/pending", GetManagerLoans)
-	router.POST("/loans/process", ProcessLoanRequest)
+	// Loan related routes
+	router.GET("/loans/pending", GetPendingLoans)
+	router.POST("/loans/approve", ApproveLoan)
+	router.POST("/loans/reject", RejectLoan)
+
+	// ...existing routes...
 }
 
 // GetTransactionStatistics handler for managers to get statistics (reused from operator)
-func GetTransactionStatistics(c *gin.Context) {
-	userID, exists := getUserID(c)
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
-		return
-	}
-
-	// Check if user is a manager or operator
-	if !hasRole(userID, "manager", "operator", "admin") {
-		c.JSON(http.StatusForbidden, gin.H{"error": "insufficient privileges"})
-		return
-	}
-
-	// Get statistics
-	stats, err := db.GetTransactionStatistics()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get statistics"})
-		return
-	}
-
-	c.JSON(http.StatusOK, stats)
-}
 
 // GetTransactions handler for managers to view transactions (reused from operator)
-func GetTransactions(c *gin.Context) {
-	userID, exists := getUserID(c)
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
-		return
-	}
-
-	// Check if user is a manager or operator
-	if !hasRole(userID, "manager", "operator", "admin") {
-		c.JSON(http.StatusForbidden, gin.H{"error": "insufficient privileges"})
-		return
-	}
-
-	// Parse filter parameters
-	username := c.Query("username")
-	txType := c.Query("type")
-
-	var date *time.Time
-	if dateStr := c.Query("date"); dateStr != "" {
-		parsedDate, err := time.Parse("2006-01-02", dateStr)
-		if err == nil {
-			date = &parsedDate
-		}
-	}
-
-	// Get transaction history with filters
-	transactions, err := db.GetTransactionHistory(username, txType, date)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get transactions"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"transactions": transactions})
-}
 
 // CancelTransaction handler for managers to cancel transactions (reused from operator)
 func CancelTransaction(c *gin.Context) {
@@ -137,7 +83,7 @@ func ManagerReviewLoan(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&request); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request format"})
 		return
 	}
 
@@ -160,17 +106,22 @@ func ManagerReviewLoan(c *gin.Context) {
 		return
 	}
 
+	// Convert manager ID from int to int64 to match the function parameter type
+	managerIDInt64 := int64(managerID)
+
 	// Process the review
 	if request.Action == "approve" {
 		// First approve the loan (changes status to Approved)
-		if err := db.ManagerApproveLoan(request.LoanID, int64(managerID)); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to approve loan"})
+		err = db.ManagerApproveLoan(request.LoanID, managerIDInt64)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to approve loan: " + err.Error()})
 			return
 		}
 
 		// Then explicitly activate it (changes status to Active)
-		if err := db.ActivateLoan(request.LoanID); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "loan approved but failed to activate"})
+		err = db.ActivateLoan(request.LoanID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "loan approved but failed to activate: " + err.Error()})
 			return
 		}
 
@@ -178,19 +129,24 @@ func ManagerReviewLoan(c *gin.Context) {
 		user, err := db.GetUserByID(int(loan.UserID))
 		if err == nil && user != nil {
 			// Log the approval with username
-			metadata := fmt.Sprintf("Loan/installment #%d for %s approved and activated by manager #%d",
-				request.LoanID, user.Username, managerID)
-			db.LogTransaction(int64(managerID), "loan_manager_approval", &loan.Amount, metadata)
+			db.LogTransaction(managerIDInt64, "loan_approval", &loan.Amount,
+				fmt.Sprintf("Approved loan #%d for user %s (ID: %d)",
+					request.LoanID, user.Username, loan.UserID))
+		} else {
+			// Log the approval without username
+			db.LogTransaction(managerIDInt64, "loan_approval", &loan.Amount,
+				fmt.Sprintf("Approved loan #%d for user ID %d", request.LoanID, loan.UserID))
 		}
 	} else {
 		// For rejection, comment is required
 		if request.Comment == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "comment is required for rejection"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "comment is required when rejecting a loan"})
 			return
 		}
 
-		if err := db.ManagerRejectLoan(request.LoanID, int64(managerID), request.Comment); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to reject loan"})
+		err = db.ManagerRejectLoan(request.LoanID, managerIDInt64, request.Comment)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to reject loan: " + err.Error()})
 			return
 		}
 
@@ -198,9 +154,14 @@ func ManagerReviewLoan(c *gin.Context) {
 		user, err := db.GetUserByID(int(loan.UserID))
 		if err == nil && user != nil {
 			// Log the rejection with username and reason
-			metadata := fmt.Sprintf("Loan/installment #%d for %s rejected by manager #%d. Reason: %s",
-				request.LoanID, user.Username, managerID, request.Comment)
-			db.LogTransaction(int64(managerID), "loan_manager_rejection", &loan.Amount, metadata)
+			db.LogTransaction(managerIDInt64, "loan_rejection", &loan.Amount,
+				fmt.Sprintf("Rejected loan #%d for user %s. Reason: %s",
+					request.LoanID, user.Username, request.Comment))
+		} else {
+			// Log the rejection without username
+			db.LogTransaction(managerIDInt64, "loan_rejection", &loan.Amount,
+				fmt.Sprintf("Rejected loan #%d for user ID %d. Reason: %s",
+					request.LoanID, loan.UserID, request.Comment))
 		}
 	}
 

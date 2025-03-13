@@ -1,11 +1,9 @@
 function switchTab(tab) {
-    // Update tab buttons
+    
     document.querySelectorAll('.auth-tab').forEach(button => {
         button.classList.remove('active');
     });
     document.querySelector(`.auth-tab[onclick*="${tab}"]`).classList.add('active');
-
-    // Update form visibility
     document.querySelectorAll('.auth-form').forEach(form => {
         form.classList.remove('active');
     });
@@ -84,7 +82,7 @@ async function register() {
     const password = document.getElementById('register-password').value;
     const confirmPassword = document.getElementById('register-confirm-password').value;
 
-    // Validation
+   
     if (!username || !password || !confirmPassword) {
         showMessage('register-form', 'Username and password are required');
         return;
@@ -111,7 +109,7 @@ async function register() {
                 email: email,
                 password: password,
                 fullName: name,
-                role: role || 'client' // Default to client if not specified
+                role: role || 'client' 
             })
         });
 
@@ -132,15 +130,15 @@ async function register() {
 }
 
 function showForgotPassword() {
-    // Implement forgot password functionality
+  
     alert('Password reset functionality will be implemented soon.');
 }
 
-// Check if user is already logged in when the page loads
+
 document.addEventListener('DOMContentLoaded', () => {
     const token = localStorage.getItem('authToken');
     if (token) {
-        // User is already logged in, redirect to main page
+
         window.location.href = '/';
     }
 });

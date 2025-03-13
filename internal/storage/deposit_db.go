@@ -96,6 +96,9 @@ func GetDeposit(clientID int64, bankName string, depositID int64) (models.Deposi
 		&freezeUntil,
 	)
 
+
+
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return deposit, errors.New("deposit not found")
@@ -106,7 +109,6 @@ func GetDeposit(clientID int64, bankName string, depositID int64) (models.Deposi
 	deposit.IsBlocked = isBlocked == 1
 	deposit.IsFrozen = isFrozen == 1
 
-	// Check if freezeUntil is valid before assigning
 	if freezeUntil.Valid {
 		deposit.FreezeUntil = freezeUntil.Time
 	}
@@ -348,9 +350,4 @@ func TransferBetweenAccounts(transfer models.Transfer) error {
 }
 
 // Helper function to convert bool to int for SQLite
-func boolToInt(b bool) int {
-	if b {
-		return 1
-	}
-	return 0
-}
+

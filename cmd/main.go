@@ -41,7 +41,7 @@ func main() {
 		c.File(filepath.Join(staticPath, "loans.html"))
 	})
 
-	// Serve authentication page
+	// Serve jsauthentication page
 	r.GET("/auth", func(c *gin.Context) {
 		c.File(filepath.Join(staticPath, "auth.html"))
 	})
@@ -81,10 +81,14 @@ func main() {
 		auth.GET("/admin/action-logs", handlers.GetAllActionLogs)
 		auth.POST("/admin/cancel-user-actions", handlers.CancelAllUserActions)
 
-		// Operator routes
+		// Operator routes - add route for recent actions
 		auth.GET("/operator/statistics", handlers.GetTransactionStatistics)
+		auth.GET("/operator/actions", handlers.GetUserActions)
+		auth.GET("/operator/recent-actions", handlers.GetRecentActions) // Add new endpoint
+		auth.GET("/operator/users", handlers.GetUsers)
+		auth.GET("/operator/users/:id/last-action", handlers.GetUserLastAction)
+		auth.POST("/operator/cancel-action", handlers.CancelLastOperation)
 		auth.GET("/operator/transactions", handlers.GetTransactions)
-		auth.POST("/operator/cancel-transaction", handlers.CancelTransaction)
 	}
 
 	// Register deposit API endpoints

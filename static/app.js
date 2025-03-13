@@ -142,7 +142,7 @@ async function transferBetweenAccounts() {
     return await makeRequest('/deposit/transfer', 'POST', data);
 }
 
-// Freeze deposit
+// Freeze id
 async function freezeDeposit() {
     const data = {
         bank_name: document.getElementById('freeze_bank_name').value,
@@ -223,7 +223,6 @@ function getOperationName(endpoint) {
     
     return operations[endpoint] || 'unknownOperation';
 }
-
 
 function getSuccessMessage(endpoint) {
     const messages = {
@@ -1196,21 +1195,61 @@ function renderDeposits(deposits) {
         return;
     }
 
-    let html = '<div class="cards-grid">';
+    let html = '<div class="finance-cards">';
     deposits.forEach(deposit => {
+        // Determine status class and text
+        let statusClass = 'active';
+        let statusText = 'Активен';
+        
+        if (deposit.is_blocked) {
+            statusClass = 'blocked';
+            statusText = 'Заблокирован';
+        } else if (deposit.is_frozen) {
+            statusClass = 'frozen';
+            statusText = 'Заморожен';
+        }
+        
+        // Format amount and dates
+        const formattedAmount = new Intl.NumberFormat('ru-RU', {
+            style: 'currency',
+            currency: 'RUB',
+            minimumFractionDigits: 2
+        }).format(deposit.amount || 0);
+        
+        const createdDate = deposit.created_at ? new Date(deposit.created_at).toLocaleDateString('ru-RU') : 'Н/Д';
+        const freezeDate = deposit.freeze_until ? new Date(deposit.freeze_until).toLocaleDateString('ru-RU') : null;
+        
         html += `
-            <div class="finance-card">
+            <div class="finance-card deposit-card">
+                <div class="card-status-indicator ${statusClass}">
+                    <span class="status-dot"></span>
+                    <span class="status-text">${statusText}</span>
+                </div>
                 <div class="card-header">
                     <h3>${deposit.bank_name || 'Банк'}</h3>
-                    <span class="status ${deposit.is_blocked ? 'blocked' : deposit.is_frozen ? 'frozen' : 'active'}">
-                        ${deposit.is_blocked ? 'Заблокирован' : deposit.is_frozen ? 'Заморожен' : 'Активен'}
-                    </span>
+                    <div class="card-id">#${deposit.deposit_id || 'ID'}</div>
                 </div>
                 <div class="card-body">
-                    <div class="amount">${(deposit.amount || 0).toFixed(2)}</div>
-                    <div class="details">
-                        <p>Процентная ставка: ${deposit.interest || 0}%</p>
-                        <p>ID: ${deposit.deposit_id || 'N/A'}</p>
+                    <div class="amount-section">
+                        <span class="amount-label">Баланс</span>
+                        <span class="amount-value">${formattedAmount}</span>
+                    </div>
+                    
+                    <div class="deposit-details">
+                        <div class="detail-row">
+                            <span class="detail-label">Процентная ставка</span>
+                            <span class="detail-value">${deposit.interest || 0}%</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Дата создания</span>
+                            <span class="detail-value">${createdDate}</span>
+                        </div>
+                        ${freezeDate ? `
+                        <div class="detail-row">
+                            <span class="detail-label">Заморожен до</span>
+                            <span class="detail-value">${freezeDate}</span>
+                        </div>
+                        ` : ''}
                     </div>
                 </div>
                 <div class="card-actions">
@@ -1219,22 +1258,54 @@ function renderDeposits(deposits) {
                     </button>
                     ${!deposit.is_blocked ? 
                         `<button class="action-btn ${deposit.is_frozen ? 'unfreeze' : 'freeze'}" 
-                            onclick="${deposit.is_frozen ? 'unfreezeDeposit' : 'showFreezeModal'}(${deposit.deposit_id})">
+                            onclick="${deposit.is_frozen ? `unfreezeDeposit(${deposit.deposit_id})` : `showFreezeModal(${deposit.deposit_id})`}">
                             <i class="fas fa-${deposit.is_frozen ? 'sun' : 'snowflake'}"></i>
                             ${deposit.is_frozen ? 'Разморозить' : 'Заморозить'}
                         </button>` : ''}
                     ${!deposit.is_frozen ? 
                         `<button class="action-btn ${deposit.is_blocked ? 'unblock' : 'block'}"
-                            onclick="${deposit.is_blocked ? 'unblockDeposit' : 'blockDeposit'}(${deposit.deposit_id})">
+                            onclick="${deposit.is_blocked ? `unblockDeposit(${deposit.deposit_id})` : `blockDeposit(${deposit.deposit_id})`}">
                             <i class="fas fa-${deposit.is_blocked ? 'unlock' : 'lock'}"></i>
                             ${deposit.is_blocked ? 'Разблокировать' : 'Блокировать'}
                         </button>` : ''}
+                    <button class="action-btn delete" onclick="confirmDeleteDeposit(${deposit.deposit_id})">
+                        <i class="fas fa-trash"></i> Удалить
+                    </button>
                 </div>
             </div>
         `;
     });
     html += '</div>';
     container.innerHTML = html;
+}
+
+// Add this helper function to confirm deposit deletion
+function confirmDeleteDeposit(depositId) {
+    if (confirm('Are you sure you want to delete this deposit? This action cannot be undone.')) {
+        // Get bank name from the UI or you might need to store it somewhere
+        const bankName = prompt('Please enter the bank name to confirm deletion:');
+        if (bankName) {
+            deleteDeposit(bankName, depositId);
+        }
+    }
+}
+
+// Helper function for deposit deletion
+async function deleteDeposit(bankName, depositId) {
+    try {
+        const data = {
+            bank_name: bankName,
+            deposit_id: parseInt(depositId)
+        };
+        
+        const response = await makeRequest('/deposit/delete', 'DELETE', data);
+        if (response.status >= 200 && response.status < 300) {
+            showLoanNotification('success', 'Deposit deleted successfully');
+            loadDeposits(); // Reload the deposits list
+        }
+    } catch (error) {
+        showLoanNotification('error', 'Failed to delete deposit: ' + error.message);
+    }
 }
 
 // Set up a function to show create deposit modal
@@ -1408,3 +1479,451 @@ function closeLoanNotification(notificationId) {
 
 // Make the closeLoanNotification function globally accessible
 window.closeLoanNotification = closeLoanNotification;
+
+// Function to handle deposit freeze action
+function showFreezeModal(depositId) {
+    // Create modal if it doesn't exist
+    let modal = document.getElementById('freeze-deposit-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'freeze-deposit-modal';
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h3><i class="fas fa-snowflake"></i> Заморозить вклад</h3>
+                <p>На сколько дней вы хотите заморозить этот вклад?</p>
+                <form id="freeze-deposit-form">
+                    <input type="hidden" id="freeze-deposit-id" value="${depositId}">
+                    <div class="form-group">
+                        <label for="freeze-duration">Длительность заморозки (дней)</label>
+                        <input type="number" id="freeze-duration" min="1" max="365" value="30" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="freeze-bank-name">Название банка</label>
+                        <input type="text" id="freeze-bank-name" required>
+                    </div>
+                    <button type="submit" class="action-btn freeze">
+                        <i class="fas fa-snowflake"></i> Заморозить вклад
+                    </button>
+                </form>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        // Close button functionality
+        modal.querySelector('.close').onclick = () => modal.style.display = 'none';
+        
+        // Close when clicking outside
+        window.addEventListener('click', (e) => {
+            if (e.target === modal) modal.style.display = 'none';
+        });
+        
+        // Form submission
+        modal.querySelector('#freeze-deposit-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const freezeDepositId = document.getElementById('freeze-deposit-id').value;
+            const freezeDuration = document.getElementById('freeze-duration').value;
+            const bankName = document.getElementById('freeze-bank-name').value;
+            
+            await freezeDeposit(bankName, parseInt(freezeDepositId), parseInt(freezeDuration));
+            modal.style.display = 'none';
+        };
+    } else {
+        document.getElementById('freeze-deposit-id').value = depositId;
+    }
+    
+    // Show modal
+    modal.style.display = 'block';
+}
+
+async function freezeDeposit(bankName, depositId, freezeDuration) {
+    try {
+        // Show processing notification
+        const notificationId = showLoanNotification('processing', `Замораживаем вклад на ${freezeDuration} дней...`);
+        
+        const response = await fetch('/deposit/freeze', {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + sessionStorage.getItem('authToken'),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                bank_name: bankName,
+                deposit_id: depositId,
+                freeze_duration: freezeDuration
+            })
+        });
+        
+        if (!response.ok) {
+            const result = await response.json();
+            updateLoanNotification(notificationId, 'error', result.error || 'Failed to freeze deposit');
+            throw new Error(result.error || 'Failed to freeze deposit');
+        }
+        
+        updateLoanNotification(notificationId, 'success', `Вклад заморожен на ${freezeDuration} дней`);
+        
+        // Reload deposits to show updated status
+        loadDeposits();
+    } catch (error) {
+        console.error('Error freezing deposit:', error);
+        showLoanNotification('error', error.message);
+    }
+}
+
+async function unfreezeDeposit(depositId) {
+    try {
+        const bankName = prompt('Пожалуйста, введите название банка для размораживания вклада:');
+        if (!bankName) return;
+        
+        // Show processing notification
+        const notificationId = showLoanNotification('processing', 'Размораживаем вклад...');
+        
+        const response = await fetch('/deposit/unfreeze', {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + sessionStorage.getItem('authToken'),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                bank_name: bankName,
+                deposit_id: depositId
+            })
+        });
+        
+        if (!response.ok) {
+            const result = await response.json();
+            updateLoanNotification(notificationId, 'error', result.error || 'Failed to unfreeze deposit');
+            throw new Error(result.error || 'Failed to unfreeze deposit');
+        }
+        
+        updateLoanNotification(notificationId, 'success', 'Вклад успешно разморожен');
+        
+        // Reload deposits to show updated status
+        loadDeposits();
+    } catch (error) {
+        console.error('Error unfreezing deposit:', error);
+        showLoanNotification('error', error.message);
+    }
+}
+
+async function blockDeposit(depositId) {
+    try {
+        const bankName = prompt('Пожалуйста, введите название банка для блокировки вклада:');
+        if (!bankName) return;
+
+        if (!confirm('Вы уверены, что хотите заблокировать этот вклад? Это предотвратит любые транзакции до разблокировки.')) {
+            return;
+        }
+        
+        // Show processing notification
+        const notificationId = showLoanNotification('processing', 'Блокируем вклад...');
+        
+        const response = await fetch('/deposit/block', {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + sessionStorage.getItem('authToken'),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                bank_name: bankName,
+                deposit_id: depositId
+            })
+        });
+        
+        if (!response.ok) {
+            const result = await response.json();
+            updateLoanNotification(notificationId, 'error', result.error || 'Failed to block deposit');
+            throw new Error(result.error || 'Failed to block deposit');
+        }
+        
+        updateLoanNotification(notificationId, 'success', 'Вклад успешно заблокирован');
+        
+        // Reload deposits to show updated status
+        loadDeposits();
+    } catch (error) {
+        console.error('Error blocking deposit:', error);
+        showLoanNotification('error', error.message);
+    }
+}
+
+async function unblockDeposit(depositId) {
+    try {
+        const bankName = prompt('Пожалуйста, введите название банка для разблокировки вклада:');
+        if (!bankName) return;
+        
+        // Show processing notification
+        const notificationId = showLoanNotification('processing', 'Разблокируем вклад...');
+        
+        const response = await fetch('/deposit/unblock', {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + sessionStorage.getItem('authToken'),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                bank_name: bankName,
+                deposit_id: depositId
+            })
+        });
+        
+        if (!response.ok) {
+            const result = await response.json();
+            updateLoanNotification(notificationId, 'error', result.error || 'Failed to unblock deposit');
+            throw new Error(result.error || 'Failed to unblock deposit');
+        }
+        
+        updateLoanNotification(notificationId, 'success', 'Вклад успешно разблокирован');
+        
+        // Reload deposits to show updated status
+        loadDeposits();
+    } catch (error) {
+        console.error('Error unblocking deposit:', error);
+        showLoanNotification('error', error.message);
+    }
+}
+
+function confirmDeleteDeposit(depositId) {
+    if (confirm('Вы уверены, что хотите удалить этот вклад? Это действие нельзя отменить.')) {
+        const bankName = prompt('Пожалуйста, введите название банка для подтверждения удаления:');
+        if (bankName) {
+            deleteDeposit(bankName, depositId);
+        }
+    }
+}
+
+async function deleteDeposit(bankName, depositId) {
+    try {
+        // Show processing notification
+        const notificationId = showLoanNotification('processing', 'Удаляем вклад...');
+        
+        const response = await fetch('/deposit/delete', {
+            method: 'DELETE',
+            headers: {
+                'Authorization': 'Bearer ' + sessionStorage.getItem('authToken'),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                bank_name: bankName,
+                deposit_id: parseInt(depositId)
+            })
+        });
+        
+        if (!response.ok) {
+            const result = await response.json();
+            updateLoanNotification(notificationId, 'error', result.error || 'Failed to delete deposit');
+            throw new Error(result.error || 'Failed to delete deposit');
+        }
+        
+        updateLoanNotification(notificationId, 'success', 'Вклад успешно удален');
+        
+        // Reload deposits list
+        loadDeposits();
+    } catch (error) {
+        console.error('Error deleting deposit:', error);
+        showLoanNotification('error', 'Не удалось удалить вклад: ' + error.message);
+    }
+}
+
+function showTransferModal(depositId) {
+    // Create modal if it doesn't exist
+    let modal = document.getElementById('transfer-deposit-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'transfer-deposit-modal';
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h3><i class="fas fa-exchange-alt"></i> Перевод средств</h3>
+                <form id="transfer-deposit-form">
+                    <input type="hidden" id="transfer-deposit-id" value="${depositId}">
+                    <div class="form-group">
+                        <label for="transfer-bank-name">Название банка</label>
+                        <input type="text" id="transfer-bank-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="from-account">Со счета</label>
+                        <input type="number" id="from-account" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="to-account">На счет</label>
+                        <input type="number" id="to-account" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="transfer-amount">Сумма</label>
+                        <input type="number" id="transfer-amount" min="0.01" step="0.01" required>
+                    </div>
+                    <button type="submit" class="action-btn transfer">
+                        <i class="fas fa-exchange-alt"></i> Перевести
+                    </button>
+                </form>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        // Close button functionality
+        modal.querySelector('.close').onclick = () => modal.style.display = 'none';
+        
+        // Close when clicking outside
+        window.addEventListener('click', (e) => {
+            if (e.target === modal) modal.style.display = 'none';
+        });
+        
+        // Form submission
+        modal.querySelector('#transfer-deposit-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const transferDepositId = document.getElementById('transfer-deposit-id').value;
+            const bankName = document.getElementById('transfer-bank-name').value;
+            const fromAccount = document.getElementById('from-account').value;
+            const toAccount = document.getElementById('to-account').value;
+            const amount = document.getElementById('transfer-amount').value;
+            
+            await transferFunds(bankName, parseInt(fromAccount), parseInt(toAccount), 
+                               parseFloat(amount), parseInt(transferDepositId));
+            modal.style.display = 'none';
+        };
+    } else {
+        document.getElementById('transfer-deposit-id').value = depositId;
+    }
+    
+    // Show modal
+    modal.style.display = 'block';
+}
+
+async function transferFunds(bankName, fromAccount, toAccount, amount, depositId) {
+    try {
+        // Show processing notification
+        const notificationId = showLoanNotification('processing', `Выполняем перевод ${formatCurrency(amount)}...`);
+        
+        const response = await fetch('/deposit/transfer', {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + sessionStorage.getItem('authToken'),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                bank_name: bankName,
+                from_account: fromAccount,
+                to_account: toAccount,
+                amount: amount,
+                deposit_id: depositId
+            })
+        });
+        
+        if (!response.ok) {
+            const result = await response.json();
+            updateLoanNotification(notificationId, 'error', result.error || 'Failed to transfer funds');
+            throw new Error(result.error || 'Failed to transfer funds');
+        }
+        
+        updateLoanNotification(notificationId, 'success', `Успешный перевод ${formatCurrency(amount)}`);
+        
+        // Reload deposits to show updated balances
+        loadDeposits();
+    } catch (error) {
+        console.error('Error transferring funds:', error);
+        showLoanNotification('error', error.message);
+    }
+}
+
+// Update the renderDeposits function to handle actions correctly
+function renderDeposits(deposits) {
+    const container = document.getElementById('deposits-list');
+    if (!Array.isArray(deposits)) {
+        console.error('Deposits data is not an array:', deposits);
+        container.innerHTML = '<div class="error">Некорректный формат данных</div>';
+        return;
+    }
+
+    let html = '<div class="finance-cards">';
+    deposits.forEach(deposit => {
+        // Determine status class and text
+        let statusClass = 'active';
+        let statusText = 'Активен';
+        
+        if (deposit.is_blocked) {
+            statusClass = 'blocked';
+            statusText = 'Заблокирован';
+        } else if (deposit.is_frozen) {
+            statusClass = 'frozen';
+            statusText = 'Заморожен';
+        }
+        
+        // Format amount and dates
+        const formattedAmount = new Intl.NumberFormat('ru-RU', {
+            style: 'currency',
+            currency: 'RUB',
+            minimumFractionDigits: 2
+        }).format(deposit.amount || 0);
+        
+        const createdDate = deposit.created_at ? new Date(deposit.created_at).toLocaleDateString('ru-RU') : 'Н/Д';
+        const freezeDate = deposit.freeze_until ? new Date(deposit.freeze_until).toLocaleDateString('ru-RU') : null;
+        
+        html += `
+            <div class="finance-card deposit-card">
+                <div class="card-status-indicator ${statusClass}">
+                    <span class="status-dot"></span>
+                    <span class="status-text">${statusText}</span>
+                </div>
+                <div class="card-header">
+                    <h3>${deposit.bank_name || 'Банк'}</h3>
+                    <div class="card-id">#${deposit.deposit_id || 'ID'}</div>
+                </div>
+                <div class="card-body">
+                    <div class="amount-section">
+                        <span class="amount-label">Баланс</span>
+                        <span class="amount-value">${formattedAmount}</span>
+                    </div>
+                    
+                    <div class="deposit-details">
+                        <div class="detail-row">
+                            <span class="detail-label">Процентная ставка</span>
+                            <span class="detail-value">${deposit.interest || 0}%</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Дата создания</span>
+                            <span class="detail-value">${createdDate}</span>
+                        </div>
+                        ${freezeDate ? `
+                        <div class="detail-row">
+                            <span class="detail-label">Заморожен до</span>
+                            <span class="detail-value">${freezeDate}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+                <div class="card-actions">
+                    <button class="action-btn transfer" onclick="showTransferModal(${deposit.deposit_id})">
+                        <i class="fas fa-exchange-alt"></i> Перевод
+                    </button>
+                    ${!deposit.is_blocked ? 
+                        `<button class="action-btn ${deposit.is_frozen ? 'unfreeze' : 'freeze'}" 
+                            onclick="${deposit.is_frozen ? `unfreezeDeposit(${deposit.deposit_id})` : `showFreezeModal(${deposit.deposit_id})`}">
+                            <i class="fas fa-${deposit.is_frozen ? 'sun' : 'snowflake'}"></i>
+                            ${deposit.is_frozen ? 'Разморозить' : 'Заморозить'}
+                        </button>` : ''}
+                    ${!deposit.is_frozen ? 
+                        `<button class="action-btn ${deposit.is_blocked ? 'unblock' : 'block'}"
+                            onclick="${deposit.is_blocked ? `unblockDeposit(${deposit.deposit_id})` : `blockDeposit(${deposit.deposit_id})`}">
+                            <i class="fas fa-${deposit.is_blocked ? 'unlock' : 'lock'}"></i>
+                            ${deposit.is_blocked ? 'Разблокировать' : 'Блокировать'}
+                        </button>` : ''}
+                    <button class="action-btn delete" onclick="confirmDeleteDeposit(${deposit.deposit_id})">
+                        <i class="fas fa-trash"></i> Удалить
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+function formatCurrency(amount) {
+    return new Intl.NumberFormat('ru-RU', {
+        style: 'currency',
+        currency: 'RUB',
+        minimumFractionDigits: 2
+    }).format(amount);
+}

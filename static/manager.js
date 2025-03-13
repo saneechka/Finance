@@ -1,377 +1,506 @@
-document.addEventListener('DOMContentLoaded', async function() {
-    // Check authentication and role
-    const token = sessionStorage.getItem('authToken');
-    const role = sessionStorage.getItem('userRole');
+document.addEventListener('DOMContentLoaded', function() {
+    // Check authorization
+    const authToken = sessionStorage.getItem('authToken');
+    const userRole = sessionStorage.getItem('userRole');
     
-    if (!token) {
-        document.getElementById('auth-check').style.display = 'block';
-        document.getElementById('app-content').style.display = 'none';
-        return;
-    }
-    
-    if (role !== 'manager') {
-        showFeedback('error', 'You need manager privileges to access this page');
-        setTimeout(() => {
-            window.location.href = '/';
-        }, 2000);
-        return;
-    }
-    
-    document.getElementById('auth-check').style.display = 'none';
-    document.getElementById('app-content').style.display = 'block';
-    
-    // Display user info
-    const username = sessionStorage.getItem('username');
-    document.getElementById('user-info').innerHTML = `
-        <div class="user-info-details">
-            <span class="username">${username}</span>
-            <span class="user-role manager">Manager</span>
-        </div>
-        <button onclick="logoutUser()">Logout</button>
-    `;
-    document.getElementById('user-info').style.display = 'flex';
-    
-    // Initialize tabs
-    const tabButtons = document.querySelectorAll('.tab-button');
-    const tabContents = document.querySelectorAll('.tab-content');
-    
-    tabButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            // Remove active class from all tabs
-            tabButtons.forEach(btn => btn.classList.remove('active'));
-            tabContents.forEach(content => content.classList.remove('active'));
-            
-            // Add active class to clicked tab
-            button.classList.add('active');
-            const tabContent = document.getElementById(button.dataset.tab);
-            tabContent.classList.add('active');
-            
-            // Load data for the active tab
-            if (button.dataset.tab === 'stats-tab') {
-                loadStatistics();
-            } else if (button.dataset.tab === 'transactions-tab') {
-                loadTransactions();
-            } else if (button.dataset.tab === 'loans-tab') {
-                loadLoans();
-            }
-        });
-    });
-    
-    // Initial data load
-    loadStatistics();
-    
-    // Setup event listeners for filter buttons
-    document.getElementById('apply-filters').addEventListener('click', loadTransactions);
-    document.getElementById('refresh-loans').addEventListener('click', loadLoans);
-    
-    // Setup event listeners for loan status filter
-    document.getElementById('loan-status-filter').addEventListener('change', loadLoans);
-    
-    // Setup modal close buttons
-    document.querySelectorAll('.close-modal').forEach(button => {
-        button.addEventListener('click', () => {
-            document.querySelectorAll('.modal').forEach(modal => {
-                modal.style.display = 'none';
+    if (authToken && (userRole === 'manager' || userRole === 'admin')) {
+        document.getElementById('app-content').style.display = 'block';
+        document.getElementById('auth-check').style.display = 'none';
+        
+        // Initialize user info
+        const userID = sessionStorage.getItem('userID');
+        const username = sessionStorage.getItem('username') || userID;
+        
+        const userInfo = document.getElementById('user-info');
+        userInfo.innerHTML = `
+            <div class="user-info-details">
+                <span class="username">${username}</span>
+                <span class="user-role manager">${userRole === 'admin' ? 'Administrator' : 'Manager'}</span>
+            </div>
+            <button onclick="logoutUser()">Logout</button>
+        `;
+        userInfo.style.display = 'flex';
+        
+        // Load initial data
+        loadStatistics();
+
+     
+        const tabButtons = document.querySelectorAll('.tab-button');
+        tabButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const targetTabId = this.getAttribute('data-tab');
+                
+
+                tabButtons.forEach(btn => btn.classList.remove('active'));
+                this.classList.add('active');
+                
+
+                const tabContents = document.querySelectorAll('.tab-content');
+                tabContents.forEach(content => content.classList.remove('active'));
+                document.getElementById(targetTabId).classList.add('active');
+                
+
+                if (targetTabId === 'transactions-tab') {
+                    loadTransactions();
+                } else if (targetTabId === 'stats-tab') {
+                    loadStatistics();
+                } else if (targetTabId === 'loans-tab') {
+                    loadLoans();
+                }
             });
         });
-    });
-    
-    document.getElementById('cancel-modal-close').addEventListener('click', () => {
-        document.getElementById('cancel-transaction-modal').style.display = 'none';
-    });
-    
-    document.getElementById('loan-modal-close').addEventListener('click', () => {
-        document.getElementById('review-loan-modal').style.display = 'none';
-    });
-    
-    // Setup transaction cancellation
-    document.getElementById('confirm-cancel-transaction').addEventListener('click', cancelTransaction);
-    
-    // Setup loan review actions
-    document.getElementById('approve-loan').addEventListener('click', () => reviewLoan('approve'));
-    document.getElementById('reject-loan').addEventListener('click', () => reviewLoan('reject'));
+        
+
+        document.getElementById('apply-filters').addEventListener('click', function() {
+            loadTransactions();
+        });
+        
+
+        document.getElementById('refresh-loans').addEventListener('click', function() {
+            loadLoans();
+        });
+        
+        // Set up loan status filter
+        document.getElementById('loan-status-filter').addEventListener('change', function() {
+            loadLoans();
+        });
+        
+        // Set up cancel transaction modal
+        document.querySelector('#cancel-transaction-modal .close-modal').addEventListener('click', function() {
+            document.getElementById('cancel-transaction-modal').style.display = 'none';
+        });
+        
+        document.getElementById('cancel-modal-close').addEventListener('click', function() {
+            document.getElementById('cancel-transaction-modal').style.display = 'none';
+        });
+        
+        document.getElementById('confirm-cancel-transaction').addEventListener('click', function() {
+            const transactionId = this.getAttribute('data-transaction-id');
+            cancelTransaction(transactionId);
+        });
+        
+        // Set up loan review modal
+        document.querySelector('#review-loan-modal .close-modal').addEventListener('click', function() {
+            document.getElementById('review-loan-modal').style.display = 'none';
+        });
+        
+        document.getElementById('loan-modal-close').addEventListener('click', function() {
+            document.getElementById('review-loan-modal').style.display = 'none';
+        });
+        
+        document.getElementById('reject-loan').addEventListener('click', function() {
+            const loanId = this.getAttribute('data-loan-id');
+            const comment = document.getElementById('review-loan-comment').value;
+            
+            if (!comment) {
+                showLoanNotification('error', 'Please provide a comment for the rejection');
+                return;
+            }
+            
+            reviewLoan(loanId, 'reject', comment);
+        });
+        
+        document.getElementById('approve-loan').addEventListener('click', function() {
+            const loanId = this.getAttribute('data-loan-id');
+            const comment = document.getElementById('review-loan-comment').value;
+            reviewLoan(loanId, 'approve', comment);
+        });
+    } else {
+        document.getElementById('app-content').style.display = 'none';
+        document.getElementById('auth-check').style.display = 'block';
+    }
 });
 
-// Load transaction statistics (same as operator)
 async function loadStatistics() {
     try {
         const response = await fetch('/manager/transactions/statistics', {
+            method: 'GET',
             headers: {
-                'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                'Authorization': 'Bearer ' + sessionStorage.getItem('authToken'),
+                'Content-Type': 'application/json'
             }
         });
         
-        if (!response.ok) throw new Error('Failed to load statistics');
+        if (!response.ok) {
+            throw new Error('Failed to load statistics');
+        }
         
-        const data = await response.json();
+        const stats = await response.json();
         
-        document.getElementById('total-transactions').textContent = data.total_transactions.toLocaleString();
-        document.getElementById('total-amount').textContent = data.total_amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        document.getElementById('active-users').textContent = data.active_users.toLocaleString();
-        document.getElementById('avg-transaction').textContent = data.avg_transaction.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        document.getElementById('total-transactions').textContent = stats.total_transactions || 0;
+        document.getElementById('total-amount').textContent = formatCurrency(stats.total_amount || 0);
+        document.getElementById('active-users').textContent = stats.active_users || 0;
+        document.getElementById('avg-transaction').textContent = formatCurrency(stats.avg_transaction || 0);
     } catch (error) {
         console.error('Error loading statistics:', error);
-        showFeedback('error', `Failed to load statistics: ${error.message}`);
+        showLoanNotification('error', 'Failed to load statistics: ' + error.message);
     }
 }
 
-// Load transactions with filters (same as operator)
 async function loadTransactions() {
-    const usernameFilter = document.getElementById('username-filter').value;
-    const typeFilter = document.getElementById('type-filter').value;
-    const dateFilter = document.getElementById('date-filter').value;
-    
-    let url = '/manager/transactions?';
-    if (usernameFilter) url += `username=${encodeURIComponent(usernameFilter)}&`;
-    if (typeFilter) url += `type=${encodeURIComponent(typeFilter)}&`;
-    if (dateFilter) url += `date=${encodeURIComponent(dateFilter)}&`;
+    const tbody = document.getElementById('transactions-list');
+    tbody.innerHTML = '<tr><td colspan="6" class="loading-row">Loading transactions...</td></tr>';
     
     try {
-        document.getElementById('transactions-list').innerHTML = `
-            <tr>
-                <td colspan="6" class="loading-row">Loading transactions...</td>
-            </tr>
-        `;
+        // Get filter values
+        const username = document.getElementById('username-filter').value;
+        const type = document.getElementById('type-filter').value;
+        const date = document.getElementById('date-filter').value;
         
-        const response = await fetch(url, {
+        // Build query string
+        let queryParams = [];
+        if (username) queryParams.push(`username=${encodeURIComponent(username)}`);
+        if (type) queryParams.push(`type=${encodeURIComponent(type)}`);
+        if (date) queryParams.push(`date=${encodeURIComponent(date)}`);
+        
+        const queryString = queryParams.length > 0 ? '?' + queryParams.join('&') : '';
+        
+        const response = await fetch('/manager/transactions' + queryString, {
+            method: 'GET',
             headers: {
-                'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                'Authorization': 'Bearer ' + sessionStorage.getItem('authToken'),
+                'Content-Type': 'application/json'
             }
         });
         
-        if (!response.ok) throw new Error('Failed to load transactions');
+        if (!response.ok) {
+            throw new Error('Failed to load transactions');
+        }
         
-        const data = await response.json();
-        const transactions = data.transactions || [];
+        const result = await response.json();
         
-        if (transactions.length === 0) {
-            document.getElementById('transactions-list').innerHTML = `
-                <tr>
-                    <td colspan="6" class="empty-row">No transactions found</td>
-                </tr>
-            `;
+        if (!result.transactions || result.transactions.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-row">No transactions found</td></tr>';
             return;
         }
         
-        let html = '';
-        transactions.forEach(tx => {
-            const date = new Date(tx.timestamp);
-            html += `
+        let tableHTML = '';
+        
+        result.transactions.forEach(tx => {
+            // Format date
+            const date = new Date(tx.timestamp).toLocaleString();
+            
+            // Format amount
+            const amount = tx.amount ? formatCurrency(tx.amount) : '—';
+            
+            // Determine if already cancelled and by whom
+            const isCancelled = tx.cancelled === true;
+            let cancelInfo = '';
+            
+            if (isCancelled && tx.cancelled_by) {
+                const cancelTime = new Date(tx.cancel_time || Date.now()).toLocaleString();
+                cancelInfo = `Cancelled by ID ${tx.cancelled_by} on ${cancelTime}`;
+            }
+            
+            // Determine if transaction is cancellable (e.g., not already cancelled, not too old)
+            const canCancel = !isCancelled && isTransactionCancellable(tx);
+            
+            tableHTML += `
                 <tr>
                     <td>${tx.id}</td>
-                    <td>${tx.username || `User #${tx.user_id}`}</td>
+                    <td>${tx.username || '—'} (#${tx.user_id})</td>
                     <td><span class="badge ${tx.type}">${tx.type}</span></td>
-                    <td>${tx.amount ? `${tx.amount.toFixed(2)}` : '-'}</td>
-                    <td>${date.toLocaleString()}</td>
+                    <td>${amount}</td>
+                    <td>${date}</td>
                     <td>
-                        ${tx.can_cancel ? `
-                            <button class="action-btn small danger" onclick="showCancelModal(${tx.id})">
-                                <i class="fas fa-ban"></i> Cancel
-                            </button>
-                        ` : `
-                            <span class="action-disabled">
-                                <i class="fas fa-ban"></i> Unavailable
-                            </span>
-                        `}
+                        ${isCancelled ? 
+                            `<span class="action-disabled" title="${cancelInfo}">Cancelled</span>` : 
+                            canCancel ?
+                                `<button class="action-btn danger small" onclick="showCancelModal(${tx.id})">
+                                    <i class="fas fa-ban"></i> Cancel
+                                </button>` :
+                                `<span class="action-disabled" title="This transaction can no longer be cancelled">Not cancellable</span>`
+                        }
                     </td>
                 </tr>
             `;
         });
         
-        document.getElementById('transactions-list').innerHTML = html;
+        tbody.innerHTML = tableHTML;
     } catch (error) {
         console.error('Error loading transactions:', error);
-        document.getElementById('transactions-list').innerHTML = `
-            <tr>
-                <td colspan="6" class="error-row">Error: ${error.message}</td>
-            </tr>
-        `;
+        tbody.innerHTML = `<tr><td colspan="6" class="error-row">${error.message}</td></tr>`;
+        showLoanNotification('error', 'Failed to load transactions: ' + error.message);
     }
 }
 
-// Show transaction cancellation confirmation modal
+async function loadLoans() {
+    const tbody = document.getElementById('loans-list');
+    tbody.innerHTML = '<tr><td colspan="9" class="loading-row">Loading loans...</td></tr>';
+    
+    try {
+        const status = document.getElementById('loan-status-filter').value || 'pending';
+        
+        const response = await fetch(`/manager/loans/pending?status=${status}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': 'Bearer ' + sessionStorage.getItem('authToken'),
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to load loans');
+        }
+        
+        const result = await response.json();
+        
+        if (!result.loans || result.loans.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="9" class="empty-row">No ${status} loans found</td></tr>`;
+            return;
+        }
+        
+        let tableHTML = '';
+        
+        result.loans.forEach(loan => {
+            // Format date
+            const date = new Date(loan.created_at).toLocaleString();
+            
+            // Format amounts
+            const amount = formatCurrency(loan.amount);
+            const totalPayable = formatCurrency(loan.total_payable);
+            
+            // Determine if needs review (pending status)
+            const needsReview = loan.needs_review === true || loan.status === 'pending';
+            
+            tableHTML += `
+                <tr>
+                    <td>${loan.id}</td>
+                    <td>${loan.username || '—'} (#${loan.user_id})</td>
+                    <td>${loan.type}</td>
+                    <td>${amount}</td>
+                    <td>${loan.term} months</td>
+                    <td>${loan.interest_rate}%</td>
+                    <td>${totalPayable}</td>
+                    <td>${date}</td>
+                    <td>
+                        ${needsReview ? 
+                            `<button class="action-btn primary small" onclick="showReviewModal(${loan.id})">
+                                <i class="fas fa-search"></i> Review
+                            </button>` : 
+                            `<span class="status-badge ${loan.status.toLowerCase()}">${loan.status}</span>`
+                        }
+                    </td>
+                </tr>
+            `;
+        });
+        
+        tbody.innerHTML = tableHTML;
+    } catch (error) {
+        console.error('Error loading loans:', error);
+        tbody.innerHTML = `<tr><td colspan="9" class="error-row">${error.message}</td></tr>`;
+        showLoanNotification('error', 'Failed to load loans: ' + error.message);
+    }
+}
+
 function showCancelModal(transactionId) {
+    // Update the modal content with transaction details
     document.getElementById('cancel-transaction-id').textContent = transactionId;
+    document.getElementById('confirm-cancel-transaction').setAttribute('data-transaction-id', transactionId);
+    
+    // Show an additional warning about the consequences of cancellation
+    const warningElement = document.createElement('p');
+    warningElement.className = 'warning';
+    warningElement.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Cancelling transaction #${transactionId} will revert its effects. This action cannot be undone.`;
+    
+    // Replace any existing warning
+    const existingWarning = document.querySelector('#cancel-transaction-modal .warning');
+    if (existingWarning) {
+        existingWarning.replaceWith(warningElement);
+    } else {
+        const modalContent = document.querySelector('#cancel-transaction-modal .modal-content');
+        modalContent.insertBefore(warningElement, document.querySelector('#cancel-transaction-modal .modal-actions'));
+    }
+    
+    // Display the modal
     document.getElementById('cancel-transaction-modal').style.display = 'block';
 }
 
-// Cancel transaction (same as operator)
-async function cancelTransaction() {
-    const transactionId = document.getElementById('cancel-transaction-id').textContent;
-    
+async function cancelTransaction(transactionId) {
     try {
+        // Show a processing notification while the cancellation is being processed
+        const notificationId = showLoanNotification('processing', `Cancelling transaction #${transactionId}...`);
+        
+        // Make the API request to cancel the transaction
         const response = await fetch('/manager/transactions/cancel', {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ transaction_id: parseInt(transactionId) })
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-            document.getElementById('cancel-transaction-modal').style.display = 'none';
-            showFeedback('success', 'Transaction cancelled successfully');
-            loadTransactions();
-        } else {
-            showFeedback('error', data.error || 'Failed to cancel transaction');
-        }
-    } catch (error) {
-        console.error('Error cancelling transaction:', error);
-        showFeedback('error', `Failed to cancel transaction: ${error.message}`);
-    }
-}
-
-// Load loans based on selected status
-async function loadLoans() {
-    const statusFilter = document.getElementById('loan-status-filter').value;
-    
-    try {
-        document.getElementById('loans-list').innerHTML = `
-            <tr>
-                <td colspan="9" class="loading-row">Loading loans...</td>
-            </tr>
-        `;
-        
-        const response = await fetch(`/manager/loans/pending?status=${statusFilter}`, {
-            headers: {
-                'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
-            }
-        });
-        
-        if (!response.ok) throw new Error('Failed to load loans');
-        
-        const data = await response.json();
-        const loans = data.loans || [];
-        
-        if (loans.length === 0) {
-            document.getElementById('loans-list').innerHTML = `
-                <tr>
-                    <td colspan="9" class="empty-row">No ${statusFilter} loans found</td>
-                </tr>
-            `;
-            return;
-        }
-        
-        let html = '';
-        loans.forEach(loan => {
-            const createdDate = new Date(loan.created_at).toLocaleDateString();
-            const loanType = loan.type === 'standard' ? 'Standard Loan' : 'Installment Plan';
-            
-            html += `
-                <tr>
-                    <td>${loan.id}</td>
-                    <td>${loan.username || `User #${loan.user_id}`}</td>
-                    <td>${loanType}</td>
-                    <td>${loan.amount.toFixed(2)}</td>
-                    <td>${loan.term_months} months</td>
-                    <td>${loan.interest_rate}%</td>
-                    <td>${loan.total_payable.toFixed(2)}</td>
-                    <td>${createdDate}</td>
-                    <td>
-                        ${statusFilter === 'pending' ? `
-                            <button class="action-btn small primary" onclick="showLoanReviewModal(${JSON.stringify(loan).replace(/"/g, '&quot;')})">
-                                <i class="fas fa-search"></i> Review
-                            </button>
-                        ` : `
-                            <button class="action-btn small secondary" onclick="viewLoanDetails(${loan.id})">
-                                <i class="fas fa-eye"></i> Details
-                            </button>
-                        `}
-                    </td>
-                </tr>
-            `;
-        });
-        
-        document.getElementById('loans-list').innerHTML = html;
-    } catch (error) {
-        console.error('Error loading loans:', error);
-        document.getElementById('loans-list').innerHTML = `
-            <tr>
-                <td colspan="9" class="error-row">Error: ${error.message}</td>
-            </tr>
-        `;
-    }
-}
-
-// Show loan review modal
-function showLoanReviewModal(loan) {
-    // If loan is passed as a string (from onclick), parse it
-    if (typeof loan === 'string') {
-        loan = JSON.parse(loan);
-    }
-    
-    const loanType = loan.type === 'standard' ? 'Standard Loan' : 'Installment Plan';
-    
-    document.getElementById('review-loan-id').textContent = loan.id;
-    document.getElementById('review-loan-user').textContent = loan.username || `User #${loan.user_id}`;
-    document.getElementById('review-loan-type').textContent = loanType;
-    document.getElementById('review-loan-amount').textContent = `${loan.amount.toFixed(2)}`;
-    document.getElementById('review-loan-term').textContent = `${loan.term_months} months`;
-    document.getElementById('review-loan-interest').textContent = `${loan.interest_rate}%`;
-    document.getElementById('review-loan-monthly').textContent = `${loan.monthly_payment.toFixed(2)}`;
-    document.getElementById('review-loan-total').textContent = `${loan.total_payable.toFixed(2)}`;
-    document.getElementById('review-loan-comment').value = '';
-    
-    document.getElementById('review-loan-modal').style.display = 'block';
-}
-
-// View loan details (for non-pending loans)
-function viewLoanDetails(loanId) {
-    // This would typically show a modal with loan details
-    // For now, just show a temporary notification
-    showFeedback('info', `Viewing details for loan #${loanId}`);
-}
-
-// Review loan (approve/reject)
-async function reviewLoan(action) {
-    const loanId = parseInt(document.getElementById('review-loan-id').textContent);
-    const comment = document.getElementById('review-loan-comment').value;
-    
-    // Require comment for rejection
-    if (action === 'reject' && !comment.trim()) {
-        showFeedback('error', 'Please provide a reason for rejection');
-        return;
-    }
-    
-    // Show processing notification
-    const notificationId = showLoanNotification('processing', `Processing loan ${action} request...`);
-    
-    try {
-        const response = await fetch('/manager/loans/review', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`,
+                'Authorization': 'Bearer ' + sessionStorage.getItem('authToken'),
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                loan_id: loanId,
+                transaction_id: parseInt(transactionId)
+            })
+        });
+        
+        // Parse the response
+        const result = await response.json();
+        
+        if (!response.ok) {
+            // Handle API errors (e.g., transaction not found, already cancelled, etc.)
+            const errorMessage = result.error || 'Failed to cancel transaction';
+            updateLoanNotification(notificationId, 'error', errorMessage);
+            throw new Error(errorMessage);
+        }
+        
+        // If successful, update the notification and reload the transactions list
+        updateLoanNotification(notificationId, 'success', `Transaction #${transactionId} cancelled successfully`);
+        
+        // Close the modal
+        document.getElementById('cancel-transaction-modal').style.display = 'none';
+        
+        // Refresh the transactions list to show the updated status
+        loadTransactions();
+        
+        // Also refresh the statistics since cancellation affects them
+        loadStatistics();
+        
+        // Return success for potential additional handling
+        return { success: true, message: `Transaction #${transactionId} cancelled successfully` };
+    } catch (error) {
+        console.error('Error cancelling transaction:', error);
+        showLoanNotification('error', error.message || 'Failed to cancel transaction');
+        
+        // Return failure for potential additional handling
+        return { success: false, error: error.message || 'Failed to cancel transaction' };
+    }
+}
+
+// Helper function to determine if a transaction can be cancelled
+function isTransactionCancellable(transaction) {
+    // Implement business rules for transaction cancellation
+    if (transaction.cancelled) {
+        return false; // Already cancelled
+    }
+
+    // Check transaction type - some types might not be cancellable
+    const uncancellableTypes = ['system', 'fee', 'interest', 'correction'];
+    if (uncancellableTypes.includes(transaction.type)) {
+        return false;
+    }
+    
+    // Check transaction age - e.g., only cancel transactions less than 30 days old
+    const transactionDate = new Date(transaction.timestamp);
+    const now = new Date();
+    const daysDifference = (now - transactionDate) / (1000 * 60 * 60 * 24);
+    
+    if (daysDifference > 30) {
+        return false; // Too old to cancel
+    }
+    
+    return true;
+}
+
+async function showReviewModal(loanId) {
+    try {
+        // Show loading state
+        document.getElementById('review-loan-id').textContent = 'Loading...';
+        document.getElementById('review-loan-user').textContent = 'Loading...';
+        document.getElementById('review-loan-type').textContent = 'Loading...';
+        document.getElementById('review-loan-amount').textContent = 'Loading...';
+        document.getElementById('review-loan-term').textContent = 'Loading...';
+        document.getElementById('review-loan-interest').textContent = 'Loading...';
+        document.getElementById('review-loan-monthly').textContent = 'Loading...';
+        document.getElementById('review-loan-total').textContent = 'Loading...';
+        document.getElementById('review-loan-comment').value = '';
+        
+        document.getElementById('review-loan-modal').style.display = 'block';
+        
+        // Set loan ID on buttons
+        document.getElementById('reject-loan').setAttribute('data-loan-id', loanId);
+        document.getElementById('approve-loan').setAttribute('data-loan-id', loanId);
+        
+        // Fetch loan details
+        const response = await fetch(`/loan/${loanId}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': 'Bearer ' + sessionStorage.getItem('authToken'),
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to load loan details');
+        }
+        
+        const result = await response.json();
+        const loan = result.loan;
+        
+        // Get username
+        const userResponse = await fetch(`/users/${loan.user_id}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': 'Bearer ' + sessionStorage.getItem('authToken'),
+                'Content-Type': 'application/json'
+            }
+        }).catch(() => ({ ok: false }));
+        
+        let username = 'User #' + loan.user_id;
+        if (userResponse && userResponse.ok) {
+            const userData = await userResponse.json();
+            username = userData.username || username;
+        }
+        
+        // Fill in loan details
+        document.getElementById('review-loan-id').textContent = loan.id;
+        document.getElementById('review-loan-user').textContent = username;
+        document.getElementById('review-loan-type').textContent = loan.type;
+        document.getElementById('review-loan-amount').textContent = formatCurrency(loan.amount);
+        document.getElementById('review-loan-term').textContent = `${loan.term} months`;
+        document.getElementById('review-loan-interest').textContent = `${loan.interest_rate}%`;
+        document.getElementById('review-loan-monthly').textContent = formatCurrency(loan.monthly_payment);
+        document.getElementById('review-loan-total').textContent = formatCurrency(loan.total_payable);
+    } catch (error) {
+        console.error('Error loading loan details:', error);
+        showLoanNotification('error', error.message);
+        document.getElementById('review-loan-modal').style.display = 'none';
+    }
+}
+
+async function reviewLoan(loanId, action, comment) {
+    try {
+        const notificationId = showLoanNotification('processing', `Processing loan ${action}...`);
+        
+        const response = await fetch('/manager/loans/review', {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + sessionStorage.getItem('authToken'),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                loan_id: parseInt(loanId),
                 action: action,
                 comment: comment
             })
         });
         
-        const data = await response.json();
+        const result = await response.json();
         
-        if (response.ok) {
-            document.getElementById('review-loan-modal').style.display = 'none';
-            // Update notification to success
-            updateLoanNotification(notificationId, 'success', `Loan ${action === 'approve' ? 'approved' : 'rejected'} successfully`);
-            showFeedback('success', `Loan ${action}d successfully`);
-            loadLoans();
-        } else {
-            // Update notification to error
-            updateLoanNotification(notificationId, 'error', data.error || `Failed to ${action} loan`);
-            showFeedback('error', data.error || `Failed to ${action} loan`);
+        if (!response.ok) {
+            throw new Error(result.error || `Failed to ${action} loan`);
         }
+        
+        updateLoanNotification(
+            notificationId, 
+            'success', 
+            `Loan #${loanId} ${action === 'approve' ? 'approved' : 'rejected'} successfully`
+        );
+        
+        document.getElementById('review-loan-modal').style.display = 'none';
+        loadLoans();
     } catch (error) {
         console.error(`Error ${action}ing loan:`, error);
-        // Update notification to error
-        updateLoanNotification(notificationId, 'error', `Failed to ${action} loan: ${error.message}`);
-        showFeedback('error', `Failed to ${action} loan: ${error.message}`);
+        showLoanNotification('error', error.message);
     }
+}
+
+function formatCurrency(amount) {
+    return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2
+    }).format(amount);
 }
 
 // Show loan operation notification banner
@@ -439,6 +568,7 @@ function updateLoanNotification(notificationId, type, message) {
     // Update icon
     let icon = '';
     switch (type) {
+    
         case 'success':
             icon = '<i class="fas fa-check-circle"></i>';
             break;
