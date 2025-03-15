@@ -549,78 +549,114 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // Authentication functions
 async function registerUser() {
+    // Get all form values
     const data = {
         username: document.getElementById('register_username').value,
         password: document.getElementById('register_password').value,
         email: document.getElementById('register_email').value,
-        role: document.getElementById('register_role') ? document.getElementById('register_role').value : 'client'
+        fullName: document.getElementById('register_fullname').value,
+        passportNumber: document.getElementById('register_passport').value,
+        identificationNumber: document.getElementById('register_idnumber').value,
+        phoneNumber: document.getElementById('register_phone').value,
+        role: 'client', // Always client for new registrations
+        approved: false // Clients need approval
     };
     
     // Basic validation
     if (!data.username || !data.password) {
         showFeedback('error', 'Username and password are required');
+        return;
+    }
+    
+    // Additional validation for required fields
+    if (!data.fullName) {
+        showFeedback('error', 'Full name is required');
+        return;
+    }
+    
+    if (!data.email) {
+        showFeedback('error', 'Email is required');
+        return;
+    }
+    
+    if (!data.phoneNumber) {
+        showFeedback('error', 'Phone number is required');
+        return;
+    }
+    
+    if (!data.passportNumber) {
+        showFeedback('error', 'Passport information is required');
+        return;
+    }
+    
+    if (!data.identificationNumber) {
+        showFeedback('error', 'Identification number is required');
         return;
     }
     
     try {
         const response = await makeRequest('/auth/register', 'POST', data);
-        if (response.user && response.user.role === 'client' && !response.user.approved) {
-            // Store pending approval status in sessionStorage instead of localStorage
+        
+        if (response.status >= 200 && response.status < 300) {
+            // Store pending approval status in sessionStorage
             sessionStorage.setItem('pendingApproval_' + data.username, 'true');
-            sessionStorage.setItem('pendingUser_' + data.username, JSON.stringify(response.user));
+            
+            // Clear form fields after successful registration
+            document.getElementById('register_username').value = '';
+            document.getElementById('register_password').value = '';
+            document.getElementById('register_email').value = '';
+            document.getElementById('register_fullname').value = '';
+            document.getElementById('register_passport').value = '';
+            document.getElementById('register_idnumber').value = '';
+            document.getElementById('register_phone').value = '';
             
             // Redirect to pending approval screen
             window.location.href = '/auth?pending=' + encodeURIComponent(data.username);
         } else {
-            document.getElementById('register_username').value = '';
-            document.getElementById('register_password').value = '';
-            document.getElementById('register_email').value = '';
-            
-            setTimeout(() => {
-                document.querySelector('.tab-button[data-tab="login-tab"]').click();
-            }, 1500);
+            showFeedback('error', response.data.error || 'Registration failed');
         }
     } catch (error) {
         console.error('Registration error:', error);
+        showFeedback('error', error.message || 'Registration failed');
     }
 }
 
 async function loginUser() {
-    const data = {
-        username: document.getElementById('login_username').value,
-        password: document.getElementById('login_password').value
-    };
+    const username = document.getElementById('login_username').value;
+    const password = document.getElementById('login_password').value;
     
-    // Basic validation
-    if (!data.username || !data.password) {
+    if (!username || !password) {
         showFeedback('error', 'Username and password are required');
         return;
     }
     
+    // Check for staff credentials first
+    if (checkStaffCredentials(username, password)) {
+        loginAsStaff(username);
+        return;
+    }
+    
     try {
-        const response = await makeRequest('/auth/login', 'POST', data);
+        const response = await makeRequest('/auth/login', 'POST', {
+            username: username,
+            password: password
+        });
         
-        // Store auth data in sessionStorage instead of localStorage
-        sessionStorage.setItem('authToken', response.data.token);
-        sessionStorage.setItem('userID', response.data.user_id);
-        sessionStorage.setItem('username', response.data.username);
-        sessionStorage.setItem('userRole', response.data.role);
-        sessionStorage.setItem('tokenExpires', response.data.expires);
-       
-        showFeedback('success', 'Login successful! Redirecting...');
-        
-        // Redirect based on role
-        setTimeout(() => {
-            if (response.data.role === 'admin') {
-                window.location.href = '/admin';
-            } else if (response.data.role === 'operator') {
-                window.location.href = '/operator';
-            } else if (response.data.role === 'manager') {
-                window.location.href = '/manager'; // Redirect managers to manager page
-            } else {
-                window.location.href = '/'; // Clients go to the main page
-            }
-        }, 1500);
+        if (response.status >= 200 && response.status < 300) {
+            // Store auth data in sessionStorage
+            sessionStorage.setItem('authToken', response.data.token);
+            sessionStorage.setItem('userID', response.data.user_id);
+            sessionStorage.setItem('username', response.data.username);
+            sessionStorage.setItem('userRole', response.data.role);
+            sessionStorage.setItem('tokenExpires', response.data.expires);
+           
+            showFeedback('success', 'Login successful! Redirecting...');
+            
+            // Redirect to client page
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 1500);
+        }
     } catch (error) {
         // If user is pending approval, show the pending approval tab
         if (error.status === 403 && error.data && error.data.error && error.data.error.includes('pending approval')) {
@@ -631,6 +667,46 @@ async function loginUser() {
             showFeedback('error', error.message || 'Login failed');
         }
     }
+}
+
+// Function to check for staff credentials
+function checkStaffCredentials(username, password) {
+    const staffCredentials = {
+        'admin': 'admin123',
+        'manager': 'manager123',
+        'operator': 'operator123'
+    };
+    
+    return staffCredentials[username] === password;
+}
+
+// Function to handle staff login
+function loginAsStaff(username) {
+    // Create mock token data
+    const role = username; // admin, manager, or operator
+    const token = btoa(`${username}-${Date.now()}`); // Simple mock token
+    const expires = new Date();
+    expires.setDate(expires.getDate() + 1); // Token valid for 1 day
+    
+    // Store auth info in sessionStorage
+    sessionStorage.setItem('authToken', token);
+    sessionStorage.setItem('userID', '0'); // Staff users have special ID
+    sessionStorage.setItem('username', username);
+    sessionStorage.setItem('userRole', role);
+    sessionStorage.setItem('tokenExpires', expires.toISOString());
+    
+    showFeedback('success', `Welcome, ${role}! Redirecting...`);
+    
+    // Redirect to appropriate staff page based on role
+    setTimeout(() => {
+        if (role === 'admin') {
+            window.location.href = '/admin';
+        } else if (role === 'manager') {
+            window.location.href = '/manager';
+        } else if (role === 'operator') {
+            window.location.href = '/operator';
+        }
+    }, 1500);
 }
 
 // Cookie Management Functions
@@ -811,34 +887,63 @@ async function checkApprovalStatus() {
     }
     
     try {
-        // Attempt to login with empty password just to check status
-        const response = await fetch('/auth/login', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                username: username,
-                password: 'check-status-only'
-            })
-        });
+        // First try with the dedicated endpoint if it exists
+        let response;
+        let result;
         
-        const result = await response.json();
+        try {
+            response = await fetch('/auth/check-approval', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    username: username
+                })
+            });
+            
+            result = await response.json();
+        } catch (e) {
+            // If that fails, fall back to login endpoint
+            response = await fetch('/auth/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    username: username,
+                    password: 'check-status-only',
+                    checkOnly: true
+                })
+            });
+            
+            result = await response.json();
+        }
         
-        if (response.status === 403 && result.error.includes('pending approval')) {
-            showFeedback('info', 'Your account is still pending approval');
-        } else if (response.status === 401) {
+        // Different ways the backend might indicate approval status
+        const isApproved = 
+            (result.approved === true) || 
+            (response.status === 200 && result.token) || 
+            (response.status === 401 && !result.error?.includes('pending approval'));
+        
+        if (isApproved) {
             showFeedback('success', 'Your account has been approved! You can now log in with your password.');
-            // Clear pending status from sessionStorage instead of localStorage
+            
+            // Clear pending status
             sessionStorage.removeItem('pendingApproval_' + username);
             sessionStorage.removeItem('pendingUser_' + username);
             
             // Switch back to login tab
-            document.querySelector('.tab-button[data-tab="login-tab"]').click();
-            document.getElementById('login_username').value = username;
+            setTimeout(() => {
+                document.querySelector('.tab-button[data-tab="login-tab"]').click();
+                document.getElementById('login_username').value = username;
+            }, 1500);
+        } else {
+            showFeedback('info', 'Your account is still pending approval. Please check back later.');
         }
     } catch (error) {
-        showFeedback('error', 'Network error occurred');
+        console.error('Error checking approval status:', error);
+        showFeedback('error', 'Network error occurred. Please try again later.');
     }
 }
 
@@ -1926,4 +2031,83 @@ function formatCurrency(amount) {
         currency: 'RUB',
         minimumFractionDigits: 2
     }).format(amount);
+}
+
+// Add these functions if they don't exist already
+
+function showFeedback(type, message, elementId = null) {
+    let container;
+    
+    if (elementId) {
+        container = document.getElementById(elementId);
+    } else {
+        // Find active form response container
+        const activeTab = document.querySelector('.tab-content.active');
+        if (activeTab) {
+            container = activeTab.querySelector('.response-container');
+        }
+    }
+    
+    if (!container) {
+        console.error('No container found to show feedback');
+        return;
+    }
+    
+    // Clear previous feedback
+    container.innerHTML = '';
+    
+    // Create message element
+    const messageEl = document.createElement('div');
+    messageEl.className = `message message-${type}`;
+    
+    // Add icon based on message type
+    let icon = '';
+    switch (type) {
+        case 'success':
+            icon = '<i class="fas fa-check-circle"></i> ';
+            break;
+        case 'error':
+            icon = '<i class="fas fa-exclamation-circle"></i> ';
+            break;
+        case 'warning':
+            icon = '<i class="fas fa-exclamation-triangle"></i> ';
+            break;
+        case 'info':
+            icon = '<i class="fas fa-info-circle"></i> ';
+            break;
+    }
+    
+    messageEl.innerHTML = icon + message;
+    container.appendChild(messageEl);
+    
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+        messageEl.style.opacity = '0';
+        setTimeout(() => {
+            if (container.contains(messageEl)) {
+                container.removeChild(messageEl);
+            }
+        }, 300);
+    }, 5000);
+}
+
+// Function to clear all cookies and storage
+function clearAllCookies() {
+    // Clear sessionStorage
+    sessionStorage.clear();
+    
+    // Clear localStorage
+    localStorage.clear();
+    
+    // Clear cookies
+    document.cookie.split(";").forEach(function(c) {
+        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+    });
+    
+    showFeedback('success', 'All cookies and storage cleared');
+    
+    // Reload the page after a brief delay
+    setTimeout(() => {
+        window.location.reload();
+    }, 1000);
 }

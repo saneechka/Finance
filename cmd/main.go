@@ -16,7 +16,7 @@ func main() {
 	if err := utils.InitEncryption(); err != nil {
 		log.Printf("Warning: Failed to initialize encryption: %v", err)
 	}
-
+	gin.SetMode(gin.ReleaseMode)
 	// Initialize database
 	storage.InitDB()
 	defer storage.CloseDB()

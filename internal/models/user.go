@@ -8,6 +8,10 @@ type User struct {
 	Username             string      `json:"username"`
 	Password             string      `json:"-"`
 	Email                string      `json:"email"`
+	FullName             string      `json:"full_name"`       // Added field for full name
+	PassportNumber       string      `json:"passport_number"` // Added field for passport details
+	IdentificationNumber string      `json:"id_number"`       // Added field for ID number
+	PhoneNumber          string      `json:"phone"`           // Added field for phone number
 	Role                 string      `json:"role"`
 	Approved             bool        `json:"approved"`
 	CreatedAt            time.Time   `json:"created_at"`

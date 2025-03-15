@@ -14,6 +14,10 @@ func EnsureUserTableExists() error {
 			username TEXT UNIQUE NOT NULL,
 			password TEXT NOT NULL,
 			email TEXT,
+			full_name TEXT,
+			passport_number TEXT,
+			identification_number TEXT,
+			phone_number TEXT,
 			role TEXT DEFAULT 'client',
 			approved INTEGER DEFAULT 0,
 			created_at TIMESTAMP NOT NULL,
@@ -47,8 +51,10 @@ func SaveUser(user *models.User) error {
 
 	// By default, new users are not approved
 	query := `
-		INSERT INTO users (username, password, email, role, approved, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO users (
+			username, password, email, full_name, passport_number, 
+			identification_number, phone_number, role, approved, created_at, updated_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	result, err := db.Exec(
@@ -56,8 +62,12 @@ func SaveUser(user *models.User) error {
 		user.Username,
 		user.Password,
 		user.Email,
+		user.FullName,
+		user.PassportNumber,
+		user.IdentificationNumber,
+		user.PhoneNumber,
 		user.Role,
-		boolToInt(user.Approved), 
+		boolToInt(user.Approved),
 		user.CreatedAt,
 		user.UpdatedAt,
 	)
@@ -76,7 +86,7 @@ func SaveUser(user *models.User) error {
 	return nil
 }
 
-//for future
+// GetUserByUsername function needs to be updated to fetch the new fields
 func GetUserByUsername(username string) (*models.User, error) {
 	// Ensure user table exists
 	if err := EnsureUserTableExists(); err != nil {
@@ -85,7 +95,8 @@ func GetUserByUsername(username string) (*models.User, error) {
 
 	user := &models.User{}
 	query := `
-		SELECT id, username, password, email, role, approved, created_at, updated_at
+		SELECT id, username, password, email, full_name, passport_number, 
+		       identification_number, phone_number, role, approved, created_at, updated_at
 		FROM users
 		WHERE username = ?
 	`
@@ -95,6 +106,10 @@ func GetUserByUsername(username string) (*models.User, error) {
 		&user.Username,
 		&user.Password,
 		&user.Email,
+		&user.FullName,
+		&user.PassportNumber,
+		&user.IdentificationNumber,
+		&user.PhoneNumber,
 		&user.Role,
 		&approved,
 		&user.CreatedAt,
@@ -108,7 +123,6 @@ func GetUserByUsername(username string) (*models.User, error) {
 	user.Approved = approved == 1
 	return user, nil
 }
-
 
 // IsUserAdmin checks if a user has administrator privileges
 func IsUserAdmin(userID int) (bool, error) {
@@ -140,7 +154,8 @@ func GetPendingUsers() ([]models.User, error) {
 	users := []models.User{}
 
 	query := `
-		SELECT id, username, email, role, created_at, updated_at
+		SELECT id, username, email, full_name, passport_number, 
+		       identification_number, phone_number, role, created_at, updated_at
 		FROM users
 		WHERE approved = 0
 		ORDER BY created_at DESC
@@ -158,6 +173,10 @@ func GetPendingUsers() ([]models.User, error) {
 			&user.ID,
 			&user.Username,
 			&user.Email,
+			&user.FullName,
+			&user.PassportNumber,
+			&user.IdentificationNumber,
+			&user.PhoneNumber,
 			&user.Role,
 			&user.CreatedAt,
 			&user.UpdatedAt,
