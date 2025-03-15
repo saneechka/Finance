@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Finance Management System</title>
+    <title>Finance Management</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="/static/styles.css">
@@ -10,182 +10,165 @@
 <body>
     <div class="navbar">
         <div class="logo">Finance Management</div>
+        <div class="navbar-actions">
+            <button onclick="clearAllCookies()" class="clear-cookies-btn" title="Clear all cookies">
+                <i class="fas fa-trash"></i> Clear Cookies
+            </button>
+        </div>
         <div id="user-info" style="display: none;"></div>
     </div>
 
+    <div id="loan-notifications"></div>
+
     <div class="container">
-        <!-- Authentication check message -->
+      
         <div id="auth-check" style="display: none; text-align: center; padding: 40px;">
-            <h2>Please log in to access the finance management system</h2>
-            <p>You need to be authenticated to use this application.</p>
+            <h2>Please log in to access your account</h2>
+            <p>You need to be logged in to use this application.</p>
             <a href="/auth" class="button primary">Go to Login</a>
         </div>
 
-        <!-- Main application content -->
         <div id="app-content" style="display: none;">
-            <!-- Action buttons -->
-            <div class="action-buttons">
-                <button class="secondary" onclick="clearAllResponses()">Clear All Responses</button>
-                <button class="secondary" onclick="clearRequestLog()">Clear Request Log</button>
+            <div class="tab-navigation">
+                <button class="tab-button active" data-tab="loans-tab">
+                    <i class="fas fa-file-invoice-dollar icon"></i>Кредиты
+                </button>
+                <button class="tab-button" data-tab="deposits-tab">
+                    <i class="fas fa-piggy-bank icon"></i>Вклады
+                </button>
             </div>
 
-            <div class="card">
-                <h2>Deposit Management</h2>
-                
-                <!-- Create Deposit Section -->
-                <div class="operation-section">
-                    <h3>Create Deposit</h3>
-                    <div class="form-group">
-                        <label for="create_bank_name">Bank Name</label>
-                        <input type="text" id="create_bank_name" placeholder="Enter bank name">
-                    </div>
-                    <div class="form-group">
-                        <label for="create_amount">Amount</label>
-                        <input type="number" id="create_amount" placeholder="Enter amount">
-                    </div>
-                    <div class="form-group">
-                        <label for="create_interest">Interest Rate (%)</label>
-                        <input type="number" id="create_interest" placeholder="Enter interest rate">
-                    </div>
-                    <button onclick="createDeposit()">Create Deposit</button>
-                    <div id="create_response" class="response-container"></div>
+            <!-- Loans Tab -->
+            <div id="loans-tab" class="tab-content active">
+                <div class="page-header">
+                    <h1>Ваши кредиты</h1>
+                    <button class="primary-button" onclick="showCreateLoanModal()">
+                        <i class="fas fa-plus"></i> Новый кредит
+                    </button>
                 </div>
-                
-                <!-- Transfer Between Accounts Section -->
-                <div class="operation-section">
-                    <h3>Transfer Between Accounts</h3>
-                    <div class="form-group">
-                        <label for="transfer_bank_name">Bank Name</label>
-                        <input type="text" id="transfer_bank_name" placeholder="Enter bank name">
+                <div id="loans-list" class="loans-list">
+                    <div class="loading">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>Загрузка ваших кредитов...</p>
                     </div>
-                    <div class="form-group">
-                        <label for="from_account">From Account ID</label>
-                        <input type="number" id="from_account" placeholder="Enter source account ID">
-                    </div>
-                    <div class="form-group">
-                        <label for="to_account">To Account ID</label>
-                        <input type="number" id="to_account" placeholder="Enter destination account ID">
-                    </div>
-                    <div class="form-group">
-                        <label for="transfer_amount">Amount</label>
-                        <input type="number" id="transfer_amount" placeholder="Enter amount to transfer">
-                    </div>
-                    <div class="form-group">
-                        <label for="transfer_deposit_id">Deposit ID</label>
-                        <input type="number" id="transfer_deposit_id" placeholder="Enter deposit ID">
-                    </div>
-                    <button onclick="transferBetweenAccounts()">Transfer</button>
-                    <div id="transferBetweenAccounts_response" class="response-container"></div>
-                </div>
-
-                <!-- Freeze Deposit Section -->
-                <div class="operation-section">
-                    <h3>Freeze Deposit</h3>
-                    <div class="form-group">
-                        <label for="freeze_bank_name">Bank Name</label>
-                        <input type="text" id="freeze_bank_name" placeholder="Enter bank name">
-                    </div>
-                    <div class="form-group">
-                        <label for="freeze_deposit_id">Deposit ID</label>
-                        <input type="number" id="freeze_deposit_id" placeholder="Enter deposit ID">
-                    </div>
-                    <div class="form-group">
-                        <label for="freeze_duration">Freeze Duration (hours)</label>
-                        <input type="number" id="freeze_duration" placeholder="Enter freeze duration in hours">
-                    </div>
-                    <button onclick="freezeDeposit()">Freeze Deposit</button>
-                    <div id="freezeDeposit_response" class="response-container"></div>
-                </div>
-
-                <!-- Block Deposit Section -->
-                <div class="operation-section">
-                    <h3>Block Deposit</h3>
-                    <div class="form-group">
-                        <label for="block_bank_name">Bank Name</label>
-                        <input type="text" id="block_bank_name" placeholder="Enter bank name">
-                    </div>
-                    <div class="form-group">
-                        <label for="block_deposit_id">Deposit ID</label>
-                        <input type="number" id="block_deposit_id" placeholder="Enter deposit ID">
-                    </div>
-                    <button onclick="blockDeposit()">Block Deposit</button>
-                    <div id="blockDeposit_response" class="response-container"></div>
-                </div>
-
-                <!-- Unblock Deposit Section -->
-                <div class="operation-section">
-                    <h3>Unblock Deposit</h3>
-                    <div class="form-group">
-                        <label for="unblock_bank_name">Bank Name</label>
-                        <input type="text" id="unblock_bank_name" placeholder="Enter bank name">
-                    </div>
-                    <div class="form-group">
-                        <label for="unblock_deposit_id">Deposit ID</label>
-                        <input type="number" id="unblock_deposit_id" placeholder="Enter deposit ID">
-                    </div>
-                    <button onclick="unblockDeposit()">Unblock Deposit</button>
-                    <div id="unblockDeposit_response" class="response-container"></div>
-                </div>
-
-                <!-- Delete Deposit Section -->
-                <div class="operation-section">
-                    <h3>Delete Deposit</h3>
-                    <div class="form-group">
-                        <label for="delete_bank_name">Bank Name</label>
-                        <input type="text" id="delete_bank_name" placeholder="Enter bank name">
-                    </div>
-                    <div class="form-group">
-                        <label for="delete_deposit_id">Deposit ID</label>
-                        <input type="number" id="delete_deposit_id" placeholder="Enter deposit ID">
-                    </div>
-                    <button onclick="deleteDeposit()">Delete Deposit</button>
-                    <div id="deleteDeposit_response" class="response-container"></div>
                 </div>
             </div>
 
-            <!-- Request Log -->
-            <div class="card" id="request-log">
-                <h3>Request Log</h3>
-                <div id="request-log-entries"></div>
+   
+            <div id="deposits-tab" class="tab-content">
+                <div class="page-header">
+                    <h1>Ваши вклады</h1>
+                    <button class="primary-button" onclick="showCreateDepositModal()">
+                        <i class="fas fa-plus"></i> Новый вклад
+                    </button>
+                </div>
+                <div id="deposits-list">
+            
+                </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Payment Modal -->
+    <div id="payment-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>Make Loan Payment</h3>
+            <form id="payment-form">
+                <input type="hidden" id="payment-loan-id">
+                <div class="form-group">
+                    <label for="payment-amount">Payment Amount</label>
+                    <input type="number" id="payment-amount" min="0" step="0.01" required>
+                </div>
+                <button type="submit" class="primary-button">Submit Payment</button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Create Loan Modal -->
+    <div id="create-loan-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="document.getElementById('create-loan-modal').style.display='none'">&times;</span>
+            <h3>Request New Loan</h3>
+            <form id="create-loan-form">
+                <div class="form-group">
+                    <label for="loan_type">Loan Type</label>
+                    <select id="loan_type" required>
+                        <option value="standard">Standard Loan</option>
+                        <option value="installment">Installment Plan</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="loan_amount">Loan Amount</label>
+                    <input type="number" id="loan_amount" min="100" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label for="loan_term">Loan Term</label>
+                    <select id="loan_term" onchange="updateLoanTermDisplay()" required>
+                        <option value="3">3 Months (5% Interest)</option>
+                        <option value="6">6 Months (7.5% Interest)</option>
+                        <option value="12">12 Months (10% Interest)</option>
+                        <option value="24">24 Months (15% Interest)</option>
+                        <option value="36">36 Months (20% Interest)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="custom_rate">Custom Interest Rate (Optional)</label>
+                    <input type="number" id="custom_rate" min="0" max="100" step="0.1">
+                </div>
+                <button type="submit" class="primary-button">Submit Loan Request</button>
+            </form>
         </div>
     </div>
 
     <script src="/static/app.js"></script>
-    <script src="/static/main.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const authToken = localStorage.getItem('authToken');
+            // Set up tab navigation
+            const tabButtons = document.querySelectorAll('.tab-navigation .tab-button');
+            tabButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const targetTabId = this.getAttribute('data-tab');
+                    
+                    // Update active button
+                    tabButtons.forEach(btn => btn.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Update visible tab
+                    const tabContents = document.querySelectorAll('.tab-content');
+                    tabContents.forEach(content => content.classList.remove('active'));
+                    document.getElementById(targetTabId).classList.add('active');
+                    
+                    // Load data for the selected tab if needed
+                    if (targetTabId === 'deposits-tab') {
+                        loadDeposits();
+                    } else if (targetTabId === 'loans-tab') {
+                        loadLoans();
+                    }
+                });
+            });
             
-            if (authToken) {
-                document.getElementById('app-content').style.display = 'block';
-                document.getElementById('auth-check').style.display = 'none';
-                
-                // Display user info
-                const userID = localStorage.getItem('userID');
-                const username = localStorage.getItem('username') || userID;
-                const role = localStorage.getItem('userRole') || 'client';
-                
-                const userInfo = document.getElementById('user-info');
-                userInfo.innerHTML = `
-                    <div class="user-info-details">
-                        <span class="username">${username}</span>
-                        <span class="user-role ${role}">${role}</span>
-                    </div>
-                    <button onclick="logoutUser()">Logout</button>
-                `;
-                userInfo.style.display = 'flex';
-                
-                // Show admin features if user is an admin
-                if (role === 'admin') {
-                    const adminElements = document.querySelectorAll('.admin-only');
-                    adminElements.forEach(el => el.style.display = 'block');
+            // Set up modal event listeners
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => {
+                const closeBtn = modal.querySelector('.close');
+                if (closeBtn) {
+                    closeBtn.onclick = () => modal.style.display = 'none';
                 }
-            } else {
-                document.getElementById('app-content').style.display = 'none';
-                document.getElementById('auth-check').style.display = 'block';
-            }
+                
+                // Close modal when clicking outside
+                window.addEventListener('click', (event) => {
+                    if (event.target === modal) {
+                        modal.style.display = 'none';
+                    }
+                });
+            });
         });
+        
+        function showCreateLoanModal() {
+            const modal = document.getElementById('create-loan-modal');
+            if (modal) modal.style.display = 'block';
+        }
     </script>
 </body>
 </html>
