@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// EnsureDepositsTableExists creates the deposits table if it doesn't exist
+
 func EnsureDepositsTableExists() error {
 	createTableQuery := `
 		CREATE TABLE IF NOT EXISTS deposits (

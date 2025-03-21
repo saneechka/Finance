@@ -20,10 +20,10 @@ import (
 var jwtKey []byte
 
 func init() {
-	
+
 	secretKey := os.Getenv("JWT_SECRET_KEY")
 	if secretKey == "" {
-		secretKey = "your_secret_key" 
+		secretKey = "your_secret_key"
 		log.Println("Warning: Using default JWT secret key. Set JWT_SECRET_KEY environment variable in production.")
 	}
 	jwtKey = []byte(secretKey)
@@ -33,7 +33,6 @@ type Claims struct {
 	UserID int `json:"user_id"`
 	jwt.RegisteredClaims
 }
-
 
 func RegisterUser(c *gin.Context) {
 	var userInput struct {
@@ -49,24 +48,25 @@ func RegisterUser(c *gin.Context) {
 		return
 	}
 
-
 	log.Printf("Registration attempt: username=%s, email=%s, role=%s",
 		userInput.Username, userInput.Email, userInput.Role)
 
-//validate password
+	//validate password
 	if userInput.Username == "" || userInput.Password == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "username and password are required"})
 		return
 	}
 
-//default case 
+	//default case
 	if userInput.Role == "" {
 		userInput.Role = "client"
 	}
 
-	// Validate role is either 'client', 'admin', 'operator', or 'manager'
-	if userInput.Role != "client" && userInput.Role != "admin" && userInput.Role != "operator" && userInput.Role != "manager" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "role must be 'client', 'manager', 'admin', or 'operator'"})
+	// Validate role is either 'client', 'admin', 'operator', 'manager', or 'external'
+	if userInput.Role != "client" && userInput.Role != "admin" &&
+		userInput.Role != "operator" && userInput.Role != "manager" &&
+		userInput.Role != "external" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "role must be 'client', 'manager', 'admin', 'operator', or 'external'"})
 		return
 	}
 
@@ -77,7 +77,6 @@ func RegisterUser(c *gin.Context) {
 		Role:     userInput.Role,
 		Approved: userInput.Role == "admin" || userInput.Role == "operator" || userInput.Role == "manager",
 	}
-
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(userInput.Password), bcrypt.DefaultCost)
 	if err != nil {
@@ -146,12 +145,10 @@ func LoginUser(c *gin.Context) {
 	}
 
 	// Check if the user is approved
-	if !user.Approved {
+	if !user.Approved && user.Role != "admin" && user.Role != "external" {
 		c.JSON(http.StatusForbidden, gin.H{"error": "your account is pending approval by an administrator"})
 		return
 	}
-
-
 
 	// Create token expiring in 24 hours
 	expirationTime := time.Now().Add(24 * time.Hour)
@@ -269,8 +266,6 @@ func RefreshToken(c *gin.Context) {
 	if err == nil {
 		claims.Subject = user.Username
 	}
-
-
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString(jwtKey)
@@ -393,4 +388,3 @@ func RejectUser(c *gin.Context) {
 // Check if user has privileges to access certain functionality
 
 // getUserID extracts the user ID from the Gin context
-

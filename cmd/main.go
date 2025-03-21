@@ -23,7 +23,6 @@ func main() {
 
 	// Set up Gin router
 	r := gin.Default()
-
 	// Find the path to the static files
 	_, b, _, _ := runtime.Caller(0)
 	basepath := filepath.Dir(b)
@@ -61,6 +60,11 @@ func main() {
 		c.File(filepath.Join(staticPath, "manager.html"))
 	})
 
+	// Serve external specialist page
+	r.GET("/external", func(c *gin.Context) {
+		c.File(filepath.Join(staticPath, "external.html"))
+	})
+
 	// Public routes
 	r.GET("/health", handlers.HealthCheck)
 	r.POST("/auth/register", handlers.RegisterUser)
@@ -71,24 +75,43 @@ func main() {
 	auth.Use(handlers.AuthMiddleware())
 	{
 		auth.POST("/auth/refresh", handlers.RefreshToken)
+	}
 
-		// Admin routes for user approval
-		auth.GET("/admin/pending-users", handlers.GetPendingUsers)
-		auth.POST("/admin/approve-user", handlers.ApproveUser)
-		auth.POST("/admin/reject-user", handlers.RejectUser)
+	// Admin routes - consolidated to prevent duplicates
+	adminRoutes := r.Group("/admin")
+	adminRoutes.Use(handlers.AuthMiddleware())
+	{
+		// User management
+		adminRoutes.GET("/pending-users", handlers.GetPendingUsers)
+		adminRoutes.POST("/approve-user", handlers.ApproveUser)
+		adminRoutes.POST("/reject-user", handlers.RejectUser)
 
-		// New admin routes for logs and action cancellation
-		auth.GET("/admin/action-logs", handlers.GetAllActionLogs)
-		auth.POST("/admin/cancel-user-actions", handlers.CancelAllUserActions)
+		// Action logs
+		adminRoutes.GET("/action-logs", handlers.GetAllActionLogs)
+		adminRoutes.POST("/cancel-user-actions", handlers.CancelAllUserActions)
 
-		// Operator routes - add route for recent actions
-		auth.GET("/operator/statistics", handlers.GetTransactionStatistics)
-		auth.GET("/operator/actions", handlers.GetUserActions)
-		auth.GET("/operator/recent-actions", handlers.GetRecentActions) // Add new endpoint
-		auth.GET("/operator/users", handlers.GetUsers)
-		auth.GET("/operator/users/:id/last-action", handlers.GetUserLastAction)
-		auth.POST("/operator/cancel-action", handlers.CancelLastOperation)
-		auth.GET("/operator/transactions", handlers.GetTransactions)
+		// Loan management
+		adminRoutes.GET("/loans/pending", handlers.GetPendingLoans)
+		adminRoutes.POST("/loans/approve", handlers.ApproveLoan)
+		adminRoutes.POST("/loans/reject", handlers.RejectLoan)
+
+		// External specialist request management
+		adminRoutes.GET("/external/pending-requests", handlers.GetPendingExternalRequests)
+		adminRoutes.POST("/external/approve", handlers.ApproveExternalRequest)
+		adminRoutes.POST("/external/reject", handlers.RejectExternalRequest)
+	}
+
+	// Operator routes
+	operatorRoutes := r.Group("/operator")
+	operatorRoutes.Use(handlers.AuthMiddleware())
+	{
+		operatorRoutes.GET("/statistics", handlers.GetTransactionStatistics)
+		operatorRoutes.GET("/actions", handlers.GetUserActions)
+		operatorRoutes.GET("/recent-actions", handlers.GetRecentActions)
+		operatorRoutes.GET("/users", handlers.GetUsers)
+		operatorRoutes.GET("/users/:id/last-action", handlers.GetUserLastAction)
+		operatorRoutes.POST("/cancel-action", handlers.CancelLastOperation)
+		operatorRoutes.GET("/transactions", handlers.GetTransactions)
 	}
 
 	// Register deposit API endpoints
@@ -115,22 +138,24 @@ func main() {
 		loanRoutes.GET("/rates", handlers.GetLoanRates)
 	}
 
-	// Admin loan routes
-	adminLoanRoutes := r.Group("/admin/loans")
-	adminLoanRoutes.Use(handlers.AuthMiddleware())
-	{
-		adminLoanRoutes.GET("/pending", handlers.GetPendingLoans)
-		adminLoanRoutes.POST("/approve", handlers.ApproveLoan)
-		adminLoanRoutes.POST("/reject", handlers.RejectLoan)
-	}
-
 	// Manager routes
 	managerRoutes := r.Group("/manager")
 	managerRoutes.Use(handlers.AuthMiddleware())
 	handlers.RegisterManagerRoutes(managerRoutes)
 
+	// External Enterprise Specialist routes
+	externalRoutes := r.Group("/external")
+	externalRoutes.Use(handlers.AuthMiddleware())
+	{
+		externalRoutes.POST("/salary-project", handlers.SubmitSalaryProject)
+		externalRoutes.POST("/transfer-request", handlers.RequestEnterpriseTransfer)
+		externalRoutes.GET("/transfers", handlers.GetEnterpriseTransfers)
+		externalRoutes.GET("/salary-projects", handlers.GetSalaryProjects)
+		externalRoutes.GET("/enterprises", handlers.GetUserEnterprises)
+	}
+
 	// Start server
-	log.Println("Starting server on :8081")
+	log.Println("Starting server on :8082")
 	if err := r.Run(":8082"); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}

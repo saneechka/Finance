@@ -1,0 +1,176 @@
+# Banking System API - Deposit Operations
+# This file contains HTTP requests for testing deposit operations
+# For use with REST Client in VS Code or similar tools
+
+@baseUrl = http://localhost:8082
+@token = YOUR_TOKEN_HERE
+
+### Register a new user
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+    "username": "deposituser",
+    "password": "secure_password",
+    "email": "deposituser@example.com",
+    "full_name": "Deposit Test User",
+    "role": "client"
+}
+
+### Login to get token
+# Execute this request and copy the token to use in subsequent requests
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+    "username": "deposituser",
+    "password": "secure_password"
+}
+
+### List deposits (initially empty)
+GET {{baseUrl}}/deposit/list
+Authorization: Bearer {{token}}
+
+### Create a deposit
+POST {{baseUrl}}/deposit/create
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "amount": 1000.50,
+    "interest": 5.5,
+    "term": 12,
+    "currency": "USD",
+    "bank_name": "Example Bank"
+}
+
+### Create a second deposit for transfer testing
+POST {{baseUrl}}/deposit/create
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "amount": 500.25,
+    "interest": 3.5,
+    "term": 6,
+    "currency": "USD",
+    "bank_name": "Example Bank"
+}
+
+### List deposits after creation
+# You should see the deposits you just created
+GET {{baseUrl}}/deposit/list
+Authorization: Bearer {{token}}
+
+### Transfer between deposits
+# Replace deposit_id_1 and deposit_id_2 with actual IDs from your list response
+POST {{baseUrl}}/deposit/transfer
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "from_deposit_id": 1,
+    "to_deposit_id": 2,
+    "amount": 200.00,
+    "bank_name": "Example Bank"
+}
+
+### Withdraw from deposit
+# Replace deposit_id with an actual ID from your list
+POST {{baseUrl}}/deposit/withdraw
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "deposit_id": 1,
+    "amount": 100.00,
+    "bank_name": "Example Bank"
+}
+
+### Freeze deposit
+# Replace deposit_id with an actual ID from your list
+POST {{baseUrl}}/deposit/freeze
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "deposit_id": 1,
+    "freeze_duration": 24,
+    "bank_name": "Example Bank",
+    "reason": "Testing freeze functionality"
+}
+
+### Block deposit
+# Replace deposit_id with an actual ID from your list
+POST {{baseUrl}}/deposit/block
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "deposit_id": 2,
+    "bank_name": "Example Bank",
+    "reason": "Testing block functionality"
+}
+
+### Unblock deposit
+# Replace deposit_id with an actual ID from your list
+POST {{baseUrl}}/deposit/unblock
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "deposit_id": 2,
+    "bank_name": "Example Bank",
+    "reason": "Testing unblock functionality"
+}
+
+### Setup automatic savings between deposits
+# Replace deposit_id and source_id with actual IDs from your list
+POST {{baseUrl}}/deposit/savings/setup
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "deposit_id": 1,
+    "source_id": 2,
+    "amount": 50.00,
+    "frequency": "monthly",
+    "bank_name": "Example Bank",
+    "target_amount": 500.00
+}
+
+### Get savings plans
+GET {{baseUrl}}/deposit/savings/plans
+Authorization: Bearer {{token}}
+
+### Cancel savings plan
+# Replace plan_id with an actual ID from the get savings plans response
+POST {{baseUrl}}/deposit/savings/cancel
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "plan_id": 1
+}
+
+### Delete deposit
+# Replace deposit_id with an actual ID from your list
+DELETE {{baseUrl}}/deposit/delete
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "deposit_id": 1,
+    "bank_name": "Example Bank"
+}
+
+### Delete second deposit
+# Replace deposit_id with an actual ID from your list
+DELETE {{baseUrl}}/deposit/delete
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "deposit_id": 2,
+    "bank_name": "Example Bank"
+}

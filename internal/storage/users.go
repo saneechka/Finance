@@ -61,6 +61,18 @@ func GetAllUsers(searchTerm string) ([]User, error) {
 	return users, rows.Err()
 }
 
+
+
+
+// func NewGetUserTransactions(userID int64)(*User,error){
+// 	var new_user User
+// 	err:=db.QuerruRow(
+		
+// 	)
+// }
+
+
+
 // GetUserByID retrieves a user by their ID
 func GetUserByID(userID int) (*User, error) {
 	var user User
