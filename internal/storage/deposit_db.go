@@ -8,7 +8,6 @@ import (
 	"time"
 )
 
-
 func EnsureDepositsTableExists() error {
 	createTableQuery := `
 		CREATE TABLE IF NOT EXISTS deposits (
@@ -26,7 +25,7 @@ func EnsureDepositsTableExists() error {
 			UNIQUE(client_id, bank_name, deposit_id)
 		)
 	`
-	_, err := db.Exec(createTableQuery)
+	_, err := DB.Exec(createTableQuery)
 	return err
 }
 
@@ -45,7 +44,7 @@ func SaveDeposit(deposit models.Deposit) error {
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
-	result, err := db.Exec(
+	result, err := DB.Exec(
 		query,
 		deposit.ClientID,
 		deposit.BankName,
@@ -84,7 +83,7 @@ func GetDeposit(clientID int64, bankName string, depositID int64) (models.Deposi
 
 	var isBlocked, isFrozen int
 	var freezeUntil sql.NullTime
-	err := db.QueryRow(query, clientID, bankName, depositID).Scan(
+	err := DB.QueryRow(query, clientID, bankName, depositID).Scan(
 		&deposit.DepositID,
 		&deposit.ClientID,
 		&deposit.BankName,
@@ -95,9 +94,6 @@ func GetDeposit(clientID int64, bankName string, depositID int64) (models.Deposi
 		&deposit.FreezeDuration,
 		&freezeUntil,
 	)
-
-
-
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -140,7 +136,7 @@ func GetDepositsByUserID(userID int64) ([]models.Deposit, error) {
 		ORDER BY created_at DESC
 	`
 
-	rows, err := db.Query(query, userID)
+	rows, err := DB.Query(query, userID)
 	if err != nil {
 		return nil, fmt.Errorf("database query error: %v", err)
 	}
@@ -194,7 +190,7 @@ func DeleteDeposit(clientID int64, bankName string) error {
 	}
 
 	query := `DELETE FROM deposits WHERE client_id = ? AND bank_name = ?`
-	result, err := db.Exec(query, clientID, bankName)
+	result, err := DB.Exec(query, clientID, bankName)
 	if err != nil {
 		return err
 	}
@@ -228,7 +224,7 @@ func BlockDeposit(clientID int64, bankName string, depositID int64) error {
 		WHERE client_id = ? AND bank_name = ? AND deposit_id = ?
 	`
 
-	_, err = db.Exec(query, time.Now(), clientID, bankName, depositID)
+	_, err = DB.Exec(query, time.Now(), clientID, bankName, depositID)
 	return err
 }
 
@@ -249,7 +245,7 @@ func UnblockDeposit(clientID int64, bankName string, depositID int64) error {
 		WHERE client_id = ? AND bank_name = ? AND deposit_id = ?
 	`
 
-	_, err = db.Exec(query, time.Now(), clientID, bankName, depositID)
+	_, err = DB.Exec(query, time.Now(), clientID, bankName, depositID)
 	return err
 }
 
@@ -264,8 +260,12 @@ func FreezeDeposit(clientID int64, bankName string, depositID int64, freezeDurat
 		return errors.New("deposit is already blocked")
 	}
 
-	// Calculate the time when the freeze will end
-	freezeUntil := time.Now().Add(time.Duration(freezeDuration) * time.Hour)
+	if deposit.IsFrozen {
+		return errors.New("deposit is already frozen")
+	}
+
+	// Calculate the time when the freeze will end (convert days to hours)
+	freezeUntil := time.Now().Add(time.Duration(freezeDuration*24) * time.Hour)
 
 	query := `
 		UPDATE deposits 
@@ -273,7 +273,7 @@ func FreezeDeposit(clientID int64, bankName string, depositID int64, freezeDurat
 		WHERE client_id = ? AND bank_name = ? AND deposit_id = ?
 	`
 
-	_, err = db.Exec(
+	_, err = DB.Exec(
 		query,
 		freezeDuration,
 		freezeUntil,
@@ -293,54 +293,60 @@ func TransferBetweenAccounts(transfer models.Transfer) error {
 	}
 
 	// Start a transaction
-	tx, err := db.Begin()
+	tx, err := DB.Begin()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
-	// Check if source account exists and has sufficient funds
+	// Check if source deposit exists and has sufficient funds
 	var sourceAmount float64
 	sourceQuery := `
 		SELECT amount FROM deposits 
-		WHERE client_id = ? AND bank_name = ? AND deposit_id = ? AND is_blocked = 0
+		WHERE deposit_id = ?
 	`
-	err = tx.QueryRow(sourceQuery, transfer.ClientID, transfer.BankName, transfer.FromAccount).Scan(&sourceAmount)
+	err = tx.QueryRow(sourceQuery, transfer.FromDepositID).Scan(&sourceAmount)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return errors.New("source deposit not found")
+		}
 		return err
 	}
 
 	if sourceAmount < transfer.Amount {
-		return fmt.Errorf("insufficient funds: available %.2f, needed %.2f", sourceAmount, transfer.Amount)
+		return ErrInsufficientFunds
 	}
 
-	// Check if destination account exists
-	var exists int
-	destQuery := `SELECT COUNT(*) FROM deposits WHERE client_id = ? AND bank_name = ? AND deposit_id = ?`
-	err = tx.QueryRow(destQuery, transfer.ClientID, transfer.BankName, transfer.ToAccount).Scan(&exists)
+	// Check if destination deposit exists
+	var destAmount float64
+	destQuery := `
+		SELECT amount FROM deposits 
+		WHERE deposit_id = ?
+	`
+	err = tx.QueryRow(destQuery, transfer.ToDepositID).Scan(&destAmount)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return errors.New("destination deposit not found")
+		}
 		return err
-	}
-	if exists == 0 {
-		return sql.ErrNoRows
 	}
 
 	now := time.Now()
 
-	// Update source account
+	// Update source deposit
 	_, err = tx.Exec(`
 		UPDATE deposits SET amount = amount - ?, updated_at = ?
-		WHERE client_id = ? AND bank_name = ? AND deposit_id = ?
-	`, transfer.Amount, now, transfer.ClientID, transfer.BankName, transfer.FromAccount)
+		WHERE deposit_id = ?
+	`, transfer.Amount, now, transfer.FromDepositID)
 	if err != nil {
 		return err
 	}
 
-	// Update destination account
+	// Update destination deposit
 	_, err = tx.Exec(`
 		UPDATE deposits SET amount = amount + ?, updated_at = ?
-		WHERE client_id = ? AND bank_name = ? AND deposit_id = ?
-	`, transfer.Amount, now, transfer.ClientID, transfer.BankName, transfer.ToAccount)
+		WHERE deposit_id = ?
+	`, transfer.Amount, now, transfer.ToDepositID)
 	if err != nil {
 		return err
 	}
@@ -349,5 +355,10 @@ func TransferBetweenAccounts(transfer models.Transfer) error {
 	return tx.Commit()
 }
 
-// Helper function to convert bool to int for SQLite
-
+// boolToInt converts a boolean to an integer (1 for true, 0 for false)
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}

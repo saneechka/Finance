@@ -1,0 +1,234 @@
+@startuml Finance System
+
+' Стили
+skinparam class {
+    BackgroundColor LightBlue
+    ArrowColor Black
+    BorderColor DarkBlue
+}
+
+package "Models" {
+    class User {
+        +ID: int64
+        +Username: string
+        +Password: string
+        +Role: string
+        +Approved: bool
+        +CreatedAt: time.Time
+        +UpdatedAt: time.Time
+    }
+
+    class Enterprise {
+        +ID: int
+        +Name: string
+        +Description: string
+        +CreatedAt: int64
+    }
+
+    class EnterpriseUser {
+        +UserID: int
+        +EnterpriseID: int
+        +Role: string
+        +AssignedAt: int64
+    }
+
+    class SalaryProject {
+        +ID: int64
+        +EnterpriseID: int
+        +EnterpriseName: string
+        +EmployeeCount: int
+        +TotalAmount: float64
+        +DocumentURL: string
+        +Comment: string
+        +Status: string
+        +SubmittedBy: int
+        +SubmittedAt: int64
+        +ProcessedBy: int
+        +ProcessedAt: int64
+    }
+
+    class SalaryPayment {
+        +ID: int64
+        +ProjectID: int64
+        +EmployeeName: string
+        +EmployeePosition: string
+        +Amount: float64
+        +AccountNumber: string
+        +BankName: string
+        +PaymentPurpose: string
+        +DocumentURL: string
+        +Status: string
+        +CreatedAt: int64
+    }
+
+    class EnterpriseTransfer {
+        +ID: int64
+        +FromEnterpriseID: int
+        +ToEnterpriseID: int
+        +ToEmployeeID: int
+        +Amount: float64
+        +Status: string
+        +Purpose: string
+        +Comment: string
+        +RequestedBy: int
+        +RequestedAt: int64
+        +ProcessedBy: int
+        +ProcessedAt: int64
+    }
+
+    class Loan {
+        +ID: int64
+        +UserID: int64
+        +Type: string
+        +Amount: float64
+        +Term: int
+        +InterestRate: float64
+        +TotalPayable: float64
+        +MonthlyPayment: float64
+        +Status: string
+        +StartDate: *time.Time
+        +EndDate: *time.Time
+        +CreatedAt: time.Time
+        +UpdatedAt: time.Time
+    }
+
+    class LoanPayment {
+        +ID: int64
+        +LoanID: int64
+        +Amount: float64
+        +Date: time.Time
+        +CreatedAt: time.Time
+    }
+
+    class Deposit {
+        +ID: int64
+        +UserID: int64
+        +Amount: float64
+        +InterestRate: float64
+        +Term: int
+        +Status: string
+        +StartDate: time.Time
+        +EndDate: time.Time
+        +CreatedAt: time.Time
+        +UpdatedAt: time.Time
+    }
+
+    class DepositPayment {
+        +ID: int64
+        +DepositID: int64
+        +Amount: float64
+        +Date: time.Time
+        +CreatedAt: time.Time
+    }
+}
+
+package "Handlers" {
+    class ExternalHandler {
+        +SubmitSalaryProject(c *gin.Context)
+        +GetSalaryProjects(c *gin.Context)
+        +CreateSalaryPayment(c *gin.Context)
+        +CreateMultipleSalaryPayments(c *gin.Context)
+        +GetSalaryProjectPayments(c *gin.Context)
+        +RequestEnterpriseTransfer(c *gin.Context)
+        +GetEnterpriseTransfers(c *gin.Context)
+        +GetUserEnterprises(c *gin.Context)
+    }
+
+    class AdminHandler {
+        +GetPendingExternalRequests(c *gin.Context)
+        +ApproveExternalRequest(c *gin.Context)
+        +RejectExternalRequest(c *gin.Context)
+        +CreateEnterprise(c *gin.Context)
+        +ApproveSalaryProject(c *gin.Context)
+        +RejectSalaryProject(c *gin.Context)
+    }
+
+    class AuthHandler {
+        +LoginUser(c *gin.Context)
+        +RegisterUser(c *gin.Context)
+        +AuthMiddleware() gin.HandlerFunc
+        +getUserID(c *gin.Context) (int64, bool)
+        +hasRole(userID int64, role string) bool
+    }
+
+    class ManagerHandler {
+        +GetPendingLoans(c *gin.Context)
+        +ApproveLoan(c *gin.Context)
+        +RejectLoan(c *gin.Context)
+        +GetPendingDeposits(c *gin.Context)
+        +ApproveDeposit(c *gin.Context)
+        +RejectDeposit(c *gin.Context)
+    }
+
+    class OperatorHandler {
+        +ProcessLoanPayment(c *gin.Context)
+        +ProcessDepositPayment(c *gin.Context)
+        +GetLoanPaymentHistory(c *gin.Context)
+        +GetDepositPaymentHistory(c *gin.Context)
+    }
+
+    class LoanHandler {
+        +RequestLoan(c *gin.Context)
+        +GetLoanDetails(c *gin.Context)
+        +MakeLoanPayment(c *gin.Context)
+        +GetLoanHistory(c *gin.Context)
+    }
+
+    class DepositHandler {
+        +CreateDeposit(c *gin.Context)
+        +GetDepositDetails(c *gin.Context)
+        +MakeDepositPayment(c *gin.Context)
+        +GetDepositHistory(c *gin.Context)
+    }
+}
+
+package "Storage" {
+    class EnterpriseDB {
+        +SaveSalaryProject(project *SalaryProject) (int64, error)
+        +GetEnterpriseSalaryProjects(enterpriseID int) ([]SalaryProject, error)
+        +SaveSalaryPayment(payment *SalaryPayment) (int64, error)
+        +SaveMultipleSalaryPayments(payments []*SalaryPayment) ([]int64, error)
+        +GetSalaryProjectPayments(projectID int64) ([]SalaryPayment, error)
+        +CheckUserEnterpriseAuthorization(userID, enterpriseID int) bool
+    }
+
+    class LoanDB {
+        +RequestLoan(request LoanRequest) (*Loan, error)
+        +GetLoan(loanID int64) (*Loan, error)
+        +GetUserLoans(userID int64) ([]*Loan, error)
+        +MakePayment(payment LoanPaymentRequest) (*Payment, error)
+        +GetLoanPayments(loanID int64) ([]*Payment, error)
+    }
+
+    class DepositDB {
+        +CreateDeposit(deposit *Deposit) (int64, error)
+        +GetDeposit(depositID int64) (*Deposit, error)
+        +GetUserDeposits(userID int64) ([]*Deposit, error)
+        +MakePayment(payment DepositPaymentRequest) (*Payment, error)
+        +GetDepositPayments(depositID int64) ([]*Payment, error)
+    }
+}
+
+' Отношения
+User "1" -- "*" EnterpriseUser
+Enterprise "1" -- "*" EnterpriseUser
+Enterprise "1" -- "*" SalaryProject
+SalaryProject "1" -- "*" SalaryPayment
+Enterprise "1" -- "*" EnterpriseTransfer : from
+Enterprise "1" -- "*" EnterpriseTransfer : to
+User "1" -- "*" Loan
+Loan "1" -- "*" LoanPayment
+User "1" -- "*" Deposit
+Deposit "1" -- "*" DepositPayment
+
+ExternalHandler ..> EnterpriseDB : uses
+AdminHandler ..> EnterpriseDB : uses
+AuthHandler ..> User : manages
+ManagerHandler ..> LoanDB : uses
+ManagerHandler ..> DepositDB : uses
+OperatorHandler ..> LoanDB : uses
+OperatorHandler ..> DepositDB : uses
+LoanHandler ..> LoanDB : uses
+DepositHandler ..> DepositDB : uses
+
+@enduml

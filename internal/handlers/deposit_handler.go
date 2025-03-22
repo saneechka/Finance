@@ -162,7 +162,7 @@ func TransferBetweenAccounts(c *gin.Context) {
 
 	// Log received data for debugging
 	log.Printf("Transfer request received: From=%d, To=%d, Amount=%.2f, Bank=%s, UserID=%d",
-		transfer.FromAccount, transfer.ToAccount, transfer.Amount, transfer.BankName, userID)
+		transfer.FromDepositID, transfer.ToDepositID, transfer.Amount, transfer.BankName, userID)
 
 	// Always set client ID to the authenticated user's ID
 	// This ensures users can only transfer from their own accounts
@@ -174,15 +174,15 @@ func TransferBetweenAccounts(c *gin.Context) {
 		return
 	}
 
-	// Validate account IDs
-	if transfer.FromAccount <= 0 || transfer.ToAccount <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "valid account IDs are required"})
+	// Validate deposit IDs
+	if transfer.FromDepositID <= 0 || transfer.ToDepositID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "valid deposit IDs are required"})
 		return
 	}
 
-	// Check if accounts are different
-	if transfer.FromAccount == transfer.ToAccount {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "source and destination accounts must be different"})
+	// Check if deposits are different
+	if transfer.FromDepositID == transfer.ToDepositID {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "source and destination deposits must be different"})
 		return
 	}
 
@@ -192,34 +192,34 @@ func TransferBetweenAccounts(c *gin.Context) {
 		return
 	}
 
-	// Verify both accounts exist and belong to the user (or have proper permissions)
-	fromAccountExists, toAccountExists, err := db.VerifyAccountsForTransfer(transfer.ClientID, transfer.FromAccount, transfer.ToAccount)
+	// Verify both deposits exist and belong to the user (or have proper permissions)
+	fromDepositExists, toDepositExists, err := db.VerifyAccountsForTransfer(transfer.ClientID, transfer.FromDepositID, transfer.ToDepositID)
 	if err != nil {
-		log.Printf("Error verifying accounts: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to verify accounts"})
+		log.Printf("Error verifying deposits: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to verify deposits"})
 		return
 	}
 
-	if !fromAccountExists {
-		c.JSON(http.StatusNotFound, gin.H{"error": "source account not found or doesn't belong to you"})
+	if !fromDepositExists {
+		c.JSON(http.StatusNotFound, gin.H{"error": "source deposit not found or doesn't belong to you"})
 		return
 	}
 
-	if !toAccountExists {
-		c.JSON(http.StatusNotFound, gin.H{"error": "destination account not found"})
+	if !toDepositExists {
+		c.JSON(http.StatusNotFound, gin.H{"error": "destination deposit not found"})
 		return
 	}
 
-	// Check if accounts are blocked or frozen
-	isBlocked, err := db.CheckAccountsBlockedOrFrozen(transfer.FromAccount, transfer.ToAccount)
+	// Check if deposits are blocked or frozen
+	isBlocked, err := db.CheckAccountsBlockedOrFrozen(transfer.FromDepositID, transfer.ToDepositID)
 	if err != nil {
-		log.Printf("Error checking account status: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to check account status"})
+		log.Printf("Error checking deposit status: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to check deposit status"})
 		return
 	}
 
 	if isBlocked {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot transfer funds from/to blocked or frozen accounts"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot transfer funds from/to blocked or frozen deposits"})
 		return
 	}
 
@@ -228,7 +228,7 @@ func TransferBetweenAccounts(c *gin.Context) {
 		log.Printf("Transfer execution error: %v", err)
 		switch err {
 		case sql.ErrNoRows:
-			c.JSON(http.StatusNotFound, gin.H{"error": "one or both accounts not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "one or both deposits not found"})
 		case db.ErrInsufficientFunds:
 			c.JSON(http.StatusBadRequest, gin.H{"error": "insufficient funds for transfer"})
 		default:
@@ -240,7 +240,7 @@ func TransferBetweenAccounts(c *gin.Context) {
 	// Log the transaction
 	amount := transfer.Amount
 	_, err = db.LogTransaction(transfer.ClientID, "transfer", &amount,
-		fmt.Sprintf("Transfer from %d to %d", transfer.FromAccount, transfer.ToAccount))
+		fmt.Sprintf("Transfer from deposit %d to deposit %d", transfer.FromDepositID, transfer.ToDepositID))
 	if err != nil {
 		log.Printf("Error logging transaction: %v", err)
 	}
@@ -248,11 +248,11 @@ func TransferBetweenAccounts(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "transfer completed successfully",
 		"transfer": gin.H{
-			"from_account": transfer.FromAccount,
-			"to_account":   transfer.ToAccount,
-			"amount":       transfer.Amount,
-			"bank":         transfer.BankName,
-			"timestamp":    time.Now().Format(time.RFC3339),
+			"from_deposit_id": transfer.FromDepositID,
+			"to_deposit_id":   transfer.ToDepositID,
+			"amount":          transfer.Amount,
+			"bank":            transfer.BankName,
+			"timestamp":       time.Now().Format(time.RFC3339),
 		},
 	})
 }

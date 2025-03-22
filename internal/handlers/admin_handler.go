@@ -329,3 +329,145 @@ func RejectExternalRequest(c *gin.Context) {
 		"request_id": request.RequestID,
 	})
 }
+
+// GetPendingSalaryProjects retrieves all pending salary projects
+func GetPendingSalaryProjects(c *gin.Context) {
+	userID, exists := getUserID(c)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+	if !hasRole(userID, "admin") {
+		c.JSON(http.StatusForbidden, gin.H{"error": "admin privileges required"})
+		return
+	}
+
+	projects, err := storage.GetPendingSalaryProjects()
+	if err != nil {
+		log.Printf("Error fetching pending salary projects: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve pending salary projects"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"salary_projects": projects,
+		"count":           len(projects),
+	})
+}
+
+// ApproveSalaryProject approves a salary project
+func ApproveSalaryProject(c *gin.Context) {
+	userID, exists := getUserID(c)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+	if !hasRole(userID, "admin") {
+		c.JSON(http.StatusForbidden, gin.H{"error": "admin privileges required"})
+		return
+	}
+
+	var request struct {
+		ProjectID int64 `json:"project_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request format"})
+		return
+	}
+
+	err := storage.UpdateSalaryProjectStatus(request.ProjectID, "approved", int(userID))
+	if err != nil {
+		log.Printf("Error approving salary project: %v", err)
+		if err.Error() == "project not found or already processed" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to approve salary project"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "salary project approved successfully",
+	})
+}
+
+// RejectSalaryProject rejects a salary project
+func RejectSalaryProject(c *gin.Context) {
+	userID, exists := getUserID(c)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+	if !hasRole(userID, "admin") {
+		c.JSON(http.StatusForbidden, gin.H{"error": "admin privileges required"})
+		return
+	}
+
+	var request struct {
+		ProjectID int64 `json:"project_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request format"})
+		return
+	}
+
+	err := storage.UpdateSalaryProjectStatus(request.ProjectID, "rejected", int(userID))
+	if err != nil {
+		log.Printf("Error rejecting salary project: %v", err)
+		if err.Error() == "project not found or already processed" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to reject salary project"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "salary project rejected successfully",
+	})
+}
+
+// CreateEnterprise creates a new enterprise
+func CreateEnterprise(c *gin.Context) {
+	userID, exists := getUserID(c)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+	if !hasRole(userID, "admin") {
+		c.JSON(http.StatusForbidden, gin.H{"error": "admin privileges required"})
+		return
+	}
+
+	var request struct {
+		Name        string `json:"name" binding:"required"`
+		Description string `json:"description"`
+		UserID      int    `json:"user_id" binding:"required"`
+		Role        string `json:"role" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request format"})
+		return
+	}
+
+	// Create the enterprise
+	enterpriseID, err := storage.CreateEnterprise(request.Name, request.Description)
+	if err != nil {
+		log.Printf("Error creating enterprise: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create enterprise"})
+		return
+	}
+
+	// Associate the user with the enterprise
+	err = storage.AssociateUserWithEnterprise(request.UserID, int(enterpriseID), request.Role)
+	if err != nil {
+		log.Printf("Error associating user with enterprise: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to associate user with enterprise"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":       "enterprise created successfully",
+		"enterprise_id": enterpriseID,
+	})
+}

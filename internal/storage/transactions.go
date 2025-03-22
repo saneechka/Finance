@@ -59,7 +59,7 @@ func EnsureTransactionTablesExist() error {
             timestamp TIMESTAMP NOT NULL
         )
     `
-	if _, err := db.Exec(transactionHistoryQuery); err != nil {
+	if _, err := DB.Exec(transactionHistoryQuery); err != nil {
 		return err
 	}
 
@@ -67,7 +67,7 @@ func EnsureTransactionTablesExist() error {
 	dropTableQuery := `
         DROP TABLE IF EXISTS cancellation_tracking
     `
-	if _, err := db.Exec(dropTableQuery); err != nil {
+	if _, err := DB.Exec(dropTableQuery); err != nil {
 		return err
 	}
 
@@ -81,7 +81,7 @@ func EnsureTransactionTablesExist() error {
             cancelled_at TIMESTAMP NOT NULL
         )
     `
-	_, err := db.Exec(cancellationTrackingQuery)
+	_, err := DB.Exec(cancellationTrackingQuery)
 	return err
 }
 
@@ -112,7 +112,7 @@ func LogTransaction(userID int64, txType string, amount *float64, metadata strin
         INSERT INTO transaction_history (user_id, transaction_type, amount, metadata, timestamp)
         VALUES (?, ?, ?, ?, ?)
     `
-	result, err := db.Exec(query, userID, txType, amount, encryptedMetadata, time.Now())
+	result, err := DB.Exec(query, userID, txType, amount, encryptedMetadata, time.Now())
 	if err != nil {
 		return 0, err
 	}
@@ -170,22 +170,22 @@ func GetTransactionStatistics() (*TransactionStatistics, error) {
 	}
 
 	// Get total transactions
-	if err := db.QueryRow("SELECT COUNT(*) FROM transaction_history").Scan(&stats.TotalTransactions); err != nil {
+	if err := DB.QueryRow("SELECT COUNT(*) FROM transaction_history").Scan(&stats.TotalTransactions); err != nil {
 		return stats, err
 	}
 
 	// Get total amount (for transfers)
-	if err := db.QueryRow("SELECT COALESCE(SUM(amount), 0) FROM transaction_history WHERE transaction_type = 'transfer' AND amount IS NOT NULL").Scan(&stats.TotalAmount); err != nil {
+	if err := DB.QueryRow("SELECT COALESCE(SUM(amount), 0) FROM transaction_history WHERE transaction_type = 'transfer' AND amount IS NOT NULL").Scan(&stats.TotalAmount); err != nil {
 		return stats, err
 	}
 
 	// Get active users (users with transactions in the last 30 days)
-	if err := db.QueryRow("SELECT COUNT(DISTINCT user_id) FROM transaction_history WHERE timestamp > datetime('now', '-30 days')").Scan(&stats.ActiveUsers); err != nil {
+	if err := DB.QueryRow("SELECT COUNT(DISTINCT user_id) FROM transaction_history WHERE timestamp > datetime('now', '-30 days')").Scan(&stats.ActiveUsers); err != nil {
 		return stats, err
 	}
 
 	// Get average transaction amount
-	if err := db.QueryRow("SELECT COALESCE(AVG(amount), 0) FROM transaction_history WHERE transaction_type = 'transfer' AND amount IS NOT NULL").Scan(&stats.AvgTransaction); err != nil {
+	if err := DB.QueryRow("SELECT COALESCE(AVG(amount), 0) FROM transaction_history WHERE transaction_type = 'transfer' AND amount IS NOT NULL").Scan(&stats.AvgTransaction); err != nil {
 		return stats, err
 	}
 
@@ -228,7 +228,7 @@ func GetTransactionHistory(username string, txType string, date *time.Time) ([]T
 
 	query += " ORDER BY th.timestamp DESC LIMIT 100"
 
-	rows, err := db.Query(query, args...)
+	rows, err := DB.Query(query, args...)
 	if err != nil {
 		return transactions, err
 	}
@@ -272,7 +272,7 @@ func CancelTransaction(transactionID int64, operatorID int) error {
 	}
 
 	// Start a transaction
-	tx, err := db.Begin()
+	tx, err := DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -445,7 +445,7 @@ func GetAllActionLogs(startDate, endDate *time.Time, username, actionType string
 
 	query += " ORDER BY th.timestamp DESC"
 
-	rows, err := db.Query(query, args...)
+	rows, err := DB.Query(query, args...)
 	if err != nil {
 		return logs, err
 	}
@@ -508,7 +508,7 @@ func CancelAllUserActions(userID, adminID int) (int, error) {
 	}
 
 	// Start a transaction
-	tx, err := db.Begin()
+	tx, err := DB.Begin()
 	if err != nil {
 		return 0, err
 	}
@@ -653,7 +653,7 @@ func CancelAllUserActions(userID, adminID int) (int, error) {
 
 // RecordUserAction stores a user action in the database
 func RecordUserAction(userID int, actionType string, amount float64, metadata string) (int64, error) {
-	result, err := db.Exec(`
+	result, err := DB.Exec(`
 		INSERT INTO user_actions (user_id, type, amount, metadata, unix_timestamp)
 		VALUES (?, ?, ?, ?, UNIX_TIMESTAMP())
 	`, userID, actionType, amount, metadata)
@@ -668,7 +668,7 @@ func RecordUserAction(userID int, actionType string, amount float64, metadata st
 // CreateReverseTransfer creates a transfer in the opposite direction
 func CreateReverseTransfer(fromAccount, toAccount int, amount float64, userID int, reason string) error {
 	// Start a transaction
-	tx, err := db.Begin()
+	tx, err := DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -724,7 +724,7 @@ func GetTransactionCountsByType(startDate, endDate time.Time) (map[string]int, e
 		ORDER BY count DESC
 	`
 
-	rows, err := db.Query(query, startDate, endDate)
+	rows, err := DB.Query(query, startDate, endDate)
 	if err != nil {
 		return nil, err
 	}
@@ -768,7 +768,7 @@ func GetRecentTransactions(limit int) ([]Transaction, error) {
 		LIMIT ?
 	`
 
-	rows, err := db.Query(query, limit)
+	rows, err := DB.Query(query, limit)
 	if err != nil {
 		return transactions, err
 	}

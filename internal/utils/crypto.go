@@ -61,7 +61,7 @@ func EncryptLogMessage(message interface{}) (string, error) {
 		return "", err
 	}
 
-	// Create a new AES cipher
+
 	block, err := aes.NewCipher(encryptionKey)
 	if err != nil {
 		return "", err

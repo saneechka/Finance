@@ -53,7 +53,7 @@ func GetUsersForOperator(searchTerm string) ([]models.User, error) {
 	query += " ORDER BY u.id DESC LIMIT 100"
 
 	// Execute query
-	rows, err := db.Query(query, args...)
+	rows, err := DB.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +105,7 @@ func ensureUserActionsTableExists() error {
 			cancel_timestamp BIGINT
 		)
 	`
-	_, err := db.Exec(query)
+	_, err := DB.Exec(query)
 	return err
 }
 
@@ -155,7 +155,7 @@ func GetUserActionsForOperator(username string, actionType string) ([]models.Use
 	query += " ORDER BY a.unix_timestamp DESC LIMIT 100"
 
 	// Execute query
-	rows, err := db.Query(query, args...)
+	rows, err := DB.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -217,7 +217,7 @@ func GetUserLastAction(userID int) (*models.UserAction, string, error) {
 
 	// Get the username
 	var username string
-	err := db.QueryRow("SELECT username FROM users WHERE id = ?", userID).Scan(&username)
+	err := DB.QueryRow("SELECT username FROM users WHERE id = ?", userID).Scan(&username)
 	if err != nil {
 		return nil, "", err
 	}
@@ -238,7 +238,7 @@ func GetUserLastAction(userID int) (*models.UserAction, string, error) {
 	`
 
 	var action models.UserAction
-	err = db.QueryRow(query, userID).Scan(
+	err = DB.QueryRow(query, userID).Scan(
 		&action.ID,
 		&action.UserID,
 		&action.Type,
@@ -288,7 +288,7 @@ func GetActionDetails(actionID int) (*models.UserAction, string, error) {
 	var cancelledBy sql.NullInt64
 	var cancelTimestamp sql.NullInt64
 
-	err := db.QueryRow(query, actionID).Scan(
+	err := DB.QueryRow(query, actionID).Scan(
 		&action.ID,
 		&action.UserID,
 		&username,
@@ -326,7 +326,7 @@ func CancelUserAction(userID, actionID, operatorID int) error {
 	}
 
 	// Start a transaction
-	tx, err := db.Begin()
+	tx, err := DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -419,12 +419,4 @@ func CancelUserAction(userID, actionID, operatorID int) error {
 
 	// Commit the transaction
 	return tx.Commit()
-}
-
-// boolToInt converts a boolean to an integer (1 for true, 0 for false)
-func boolToInt(b bool) int {
-	if b {
-		return 1
-	}
-	return 0
 }

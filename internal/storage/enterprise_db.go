@@ -33,7 +33,7 @@ type SalaryProject struct {
 	TotalAmount    float64 `json:"total_amount"`
 	DocumentURL    string  `json:"document_url"`
 	Comment        string  `json:"comment,omitempty"`
-	Status         string  `json:"status"`
+	Status         string  `json:"status"` // Status can be: "pending", "approved", "rejected"
 	SubmittedBy    int     `json:"submitted_by"`
 	SubmittedAt    int64   `json:"submitted_at"`
 	ProcessedBy    int     `json:"processed_by,omitempty"`
@@ -56,10 +56,25 @@ type EnterpriseUser struct {
 	AssignedAt   int64  `json:"assigned_at"`
 }
 
+// SalaryPayment represents a payment to an employee in a salary project
+type SalaryPayment struct {
+	ID               int64   `json:"id"`
+	ProjectID        int64   `json:"project_id"`
+	EmployeeName     string  `json:"employee_name"`
+	EmployeePosition string  `json:"employee_position"`
+	Amount           float64 `json:"amount"`
+	AccountNumber    string  `json:"account_number"`
+	BankName         string  `json:"bank_name"`
+	PaymentPurpose   string  `json:"payment_purpose"`
+	DocumentURL      string  `json:"document_url"`
+	Status           string  `json:"status"` // Status can be: "pending", "approved", "rejected"
+	CreatedAt        int64   `json:"created_at"`
+}
+
 // EnsureEnterpriseTablesExist creates required tables for enterprise functionality
 func EnsureEnterpriseTablesExist() error {
 	// Create enterprises table
-	_, err := db.Exec(`
+	_, err := DB.Exec(`
 		CREATE TABLE IF NOT EXISTS enterprises (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			name TEXT NOT NULL,
@@ -72,7 +87,7 @@ func EnsureEnterpriseTablesExist() error {
 	}
 
 	// Create enterprise_users table
-	_, err = db.Exec(`
+	_, err = DB.Exec(`
 		CREATE TABLE IF NOT EXISTS enterprise_users (
 			user_id INTEGER NOT NULL,
 			enterprise_id INTEGER NOT NULL,
@@ -88,7 +103,7 @@ func EnsureEnterpriseTablesExist() error {
 	}
 
 	// Create enterprise_transfers table
-	_, err = db.Exec(`
+	_, err = DB.Exec(`
 		CREATE TABLE IF NOT EXISTS enterprise_transfers (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			from_enterprise_id INTEGER NOT NULL,
@@ -113,7 +128,7 @@ func EnsureEnterpriseTablesExist() error {
 	}
 
 	// Create salary_projects table
-	_, err = db.Exec(`
+	_, err = DB.Exec(`
 		CREATE TABLE IF NOT EXISTS salary_projects (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			enterprise_id INTEGER NOT NULL,
@@ -136,6 +151,27 @@ func EnsureEnterpriseTablesExist() error {
 		return err
 	}
 
+	// Create salary_payments table
+	_, err = DB.Exec(`
+		CREATE TABLE IF NOT EXISTS salary_payments (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			project_id INTEGER NOT NULL,
+			employee_name TEXT NOT NULL,
+			employee_position TEXT NOT NULL,
+			amount REAL NOT NULL,
+			account_number TEXT NOT NULL,
+			bank_name TEXT NOT NULL,
+			payment_purpose TEXT NOT NULL,
+			document_url TEXT NOT NULL,
+			status TEXT NOT NULL DEFAULT 'pending',
+			created_at INTEGER NOT NULL,
+			FOREIGN KEY (project_id) REFERENCES salary_projects(id)
+		)
+	`)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -147,7 +183,7 @@ func CheckUserEnterpriseAuthorization(userID, enterpriseID int) bool {
 	}
 
 	var count int
-	err := db.QueryRow(`
+	err := DB.QueryRow(`
 		SELECT COUNT(*) FROM enterprise_users
 		WHERE user_id = ? AND enterprise_id = ?
 	`, userID, enterpriseID).Scan(&count)
@@ -183,7 +219,7 @@ func GetEnterpriseTransfers(enterpriseID int, status string) ([]EnterpriseTransf
 
 	query += " ORDER BY requested_at DESC"
 
-	rows, err := db.Query(query, args...)
+	rows, err := DB.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -246,7 +282,7 @@ func GetEnterpriseSalaryProjects(enterpriseID int) ([]SalaryProject, error) {
 		ORDER BY submitted_at DESC
 	`
 
-	rows, err := db.Query(query, enterpriseID)
+	rows, err := DB.Query(query, enterpriseID)
 	if err != nil {
 		return nil, err
 	}
@@ -303,7 +339,7 @@ func GetUserEnterprises(userID int) ([]Enterprise, error) {
 		ORDER BY e.name
 	`
 
-	rows, err := db.Query(query, userID)
+	rows, err := DB.Query(query, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -344,7 +380,7 @@ func SaveEnterpriseTransfer(transfer *EnterpriseTransfer) (int64, error) {
 		return 0, err
 	}
 
-	result, err := db.Exec(`
+	result, err := DB.Exec(`
 		INSERT INTO enterprise_transfers (
 			from_enterprise_id, to_enterprise_id, to_employee_id,
 			amount, status, purpose, comment,
@@ -362,31 +398,46 @@ func SaveEnterpriseTransfer(transfer *EnterpriseTransfer) (int64, error) {
 	return result.LastInsertId()
 }
 
-// SaveSalaryProject saves a new salary project submission to the database
+// SaveSalaryProject saves a new salary project to the database
 func SaveSalaryProject(project *SalaryProject) (int64, error) {
 	if err := EnsureEnterpriseTablesExist(); err != nil {
 		return 0, err
 	}
 
-	result, err := db.Exec(`
+	// Set default status to pending
+	project.Status = "pending"
+	project.SubmittedAt = time.Now().Unix()
+
+	result, err := DB.Exec(`
 		INSERT INTO salary_projects (
 			enterprise_id, enterprise_name, employee_count,
 			total_amount, document_url, comment, status,
 			submitted_by, submitted_at
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
-		project.EnterpriseID, project.EnterpriseName, project.EmployeeCount,
-		project.TotalAmount, project.DocumentURL, project.Comment, "pending",
-		project.SubmittedBy, time.Now().Unix(),
+		project.EnterpriseID,
+		project.EnterpriseName,
+		project.EmployeeCount,
+		project.TotalAmount,
+		project.DocumentURL,
+		project.Comment,
+		project.Status,
+		project.SubmittedBy,
+		project.SubmittedAt,
 	)
 	if err != nil {
 		return 0, err
 	}
 
-	return result.LastInsertId()
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	return id, nil
 }
 
-// GetPendingSalaryProjects retrieves all salary project submissions with pending status
+// GetPendingSalaryProjects retrieves all pending salary projects
 func GetPendingSalaryProjects() ([]SalaryProject, error) {
 	if err := EnsureEnterpriseTablesExist(); err != nil {
 		return nil, err
@@ -402,7 +453,7 @@ func GetPendingSalaryProjects() ([]SalaryProject, error) {
 		ORDER BY submitted_at DESC
 	`
 
-	rows, err := db.Query(query)
+	rows, err := DB.Query(query)
 	if err != nil {
 		return nil, err
 	}
@@ -416,15 +467,23 @@ func GetPendingSalaryProjects() ([]SalaryProject, error) {
 		var processedAt sql.NullInt64
 
 		err := rows.Scan(
-			&project.ID, &project.EnterpriseID, &project.EnterpriseName, &project.EmployeeCount,
-			&project.TotalAmount, &project.DocumentURL, &comment, &project.Status,
-			&project.SubmittedBy, &project.SubmittedAt, &processedBy, &processedAt,
+			&project.ID,
+			&project.EnterpriseID,
+			&project.EnterpriseName,
+			&project.EmployeeCount,
+			&project.TotalAmount,
+			&project.DocumentURL,
+			&comment,
+			&project.Status,
+			&project.SubmittedBy,
+			&project.SubmittedAt,
+			&processedBy,
+			&processedAt,
 		)
 		if err != nil {
 			return nil, err
 		}
 
-		// Convert nullable fields
 		if comment.Valid {
 			project.Comment = comment.String
 		}
@@ -461,7 +520,7 @@ func GetPendingTransfers() ([]EnterpriseTransfer, error) {
 		ORDER BY requested_at DESC
 	`
 
-	rows, err := db.Query(query)
+	rows, err := DB.Query(query)
 	if err != nil {
 		return nil, err
 	}
@@ -516,7 +575,7 @@ func ApproveSalaryProject(projectID, adminID int64, comment string) error {
 
 	// Check if project exists and is in pending status
 	var status string
-	err := db.QueryRow("SELECT status FROM salary_projects WHERE id = ?", projectID).Scan(&status)
+	err := DB.QueryRow("SELECT status FROM salary_projects WHERE id = ?", projectID).Scan(&status)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return errors.New("salary project not found")
@@ -529,7 +588,7 @@ func ApproveSalaryProject(projectID, adminID int64, comment string) error {
 	}
 
 	// Update the salary project status
-	_, err = db.Exec(`
+	_, err = DB.Exec(`
 		UPDATE salary_projects
 		SET status = 'approved', processed_by = ?, processed_at = ?, comment = CASE WHEN ? <> '' THEN ? ELSE comment END
 		WHERE id = ?
@@ -546,7 +605,7 @@ func ApproveSalaryProject(projectID, adminID int64, comment string) error {
 		SubmittedBy    int64
 	}
 
-	err = db.QueryRow(`
+	err = DB.QueryRow(`
 		SELECT enterprise_id, enterprise_name, total_amount, submitted_by
 		FROM salary_projects WHERE id = ?
 	`, projectID).Scan(&projectInfo.EnterpriseID, &projectInfo.EnterpriseName, &projectInfo.TotalAmount, &projectInfo.SubmittedBy)
@@ -571,7 +630,7 @@ func RejectSalaryProject(projectID, adminID int64, reason string) error {
 
 	// Check if project exists and is in pending status
 	var status string
-	err := db.QueryRow("SELECT status FROM salary_projects WHERE id = ?", projectID).Scan(&status)
+	err := DB.QueryRow("SELECT status FROM salary_projects WHERE id = ?", projectID).Scan(&status)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return errors.New("salary project not found")
@@ -584,7 +643,7 @@ func RejectSalaryProject(projectID, adminID int64, reason string) error {
 	}
 
 	// Update the salary project status
-	_, err = db.Exec(`
+	_, err = DB.Exec(`
 		UPDATE salary_projects
 		SET status = 'rejected', processed_by = ?, processed_at = ?, comment = ?
 		WHERE id = ?
@@ -601,7 +660,7 @@ func RejectSalaryProject(projectID, adminID int64, reason string) error {
 		SubmittedBy    int64
 	}
 
-	err = db.QueryRow(`
+	err = DB.QueryRow(`
 		SELECT enterprise_id, enterprise_name, total_amount, submitted_by
 		FROM salary_projects WHERE id = ?
 	`, projectID).Scan(&projectInfo.EnterpriseID, &projectInfo.EnterpriseName, &projectInfo.TotalAmount, &projectInfo.SubmittedBy)
@@ -623,7 +682,7 @@ func ApproveEnterpriseTransfer(transferID, adminID int64, comment string) error 
 
 	// Check if transfer exists and is in pending status
 	var status string
-	err := db.QueryRow("SELECT status FROM enterprise_transfers WHERE id = ?", transferID).Scan(&status)
+	err := DB.QueryRow("SELECT status FROM enterprise_transfers WHERE id = ?", transferID).Scan(&status)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return errors.New("transfer request not found")
@@ -636,7 +695,7 @@ func ApproveEnterpriseTransfer(transferID, adminID int64, comment string) error 
 	}
 
 	// Update the transfer status
-	_, err = db.Exec(`
+	_, err = DB.Exec(`
 		UPDATE enterprise_transfers
 		SET status = 'approved', processed_by = ?, processed_at = ?, comment = CASE WHEN ? <> '' THEN ? ELSE comment END
 		WHERE id = ?
@@ -655,7 +714,7 @@ func ApproveEnterpriseTransfer(transferID, adminID int64, comment string) error 
 		RequestedBy      int64
 	}
 
-	err = db.QueryRow(`
+	err = DB.QueryRow(`
 		SELECT from_enterprise_id, to_enterprise_id, to_employee_id, amount, purpose, requested_by
 		FROM enterprise_transfers WHERE id = ?
 	`, transferID).Scan(
@@ -693,7 +752,7 @@ func RejectEnterpriseTransfer(transferID, adminID int64, reason string) error {
 
 	// Check if transfer exists and is in pending status
 	var status string
-	err := db.QueryRow("SELECT status FROM enterprise_transfers WHERE id = ?", transferID).Scan(&status)
+	err := DB.QueryRow("SELECT status FROM enterprise_transfers WHERE id = ?", transferID).Scan(&status)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return errors.New("transfer request not found")
@@ -706,7 +765,7 @@ func RejectEnterpriseTransfer(transferID, adminID int64, reason string) error {
 	}
 
 	// Update the transfer status
-	_, err = db.Exec(`
+	_, err = DB.Exec(`
 		UPDATE enterprise_transfers
 		SET status = 'rejected', processed_by = ?, processed_at = ?, comment = ?
 		WHERE id = ?
@@ -725,7 +784,7 @@ func RejectEnterpriseTransfer(transferID, adminID int64, reason string) error {
 		RequestedBy      int64
 	}
 
-	err = db.QueryRow(`
+	err = DB.QueryRow(`
 		SELECT from_enterprise_id, to_enterprise_id, to_employee_id, amount, purpose, requested_by
 		FROM enterprise_transfers WHERE id = ?
 	`, transferID).Scan(
@@ -750,4 +809,238 @@ func RejectEnterpriseTransfer(transferID, adminID int64, reason string) error {
 	}
 
 	return nil
+}
+
+// UpdateSalaryProjectStatus updates the status of a salary project
+func UpdateSalaryProjectStatus(projectID int64, status string, processedBy int) error {
+	if err := EnsureEnterpriseTablesExist(); err != nil {
+		return err
+	}
+
+	if status != "approved" && status != "rejected" {
+		return errors.New("invalid status")
+	}
+
+	result, err := DB.Exec(`
+		UPDATE salary_projects
+		SET status = ?, processed_by = ?, processed_at = ?
+		WHERE id = ? AND status = 'pending'
+	`,
+		status,
+		processedBy,
+		time.Now().Unix(),
+		projectID,
+	)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return errors.New("project not found or already processed")
+	}
+
+	return nil
+}
+
+// CreateEnterprise creates a new enterprise
+func CreateEnterprise(name string, description string) (int64, error) {
+	if err := EnsureEnterpriseTablesExist(); err != nil {
+		return 0, err
+	}
+
+	result, err := DB.Exec(`
+		INSERT INTO enterprises (name, description, created_at)
+		VALUES (?, ?, ?)
+	`,
+		name,
+		description,
+		time.Now().Unix(),
+	)
+	if err != nil {
+		return 0, err
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	return id, nil
+}
+
+// AssociateUserWithEnterprise associates a user with an enterprise
+func AssociateUserWithEnterprise(userID int, enterpriseID int, role string) error {
+	if err := EnsureEnterpriseTablesExist(); err != nil {
+		return err
+	}
+
+	_, err := DB.Exec(`
+		INSERT INTO enterprise_users (user_id, enterprise_id, role, assigned_at)
+		VALUES (?, ?, ?, ?)
+	`,
+		userID,
+		enterpriseID,
+		role,
+		time.Now().Unix(),
+	)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// SaveSalaryPayment saves a new salary payment to the database
+func SaveSalaryPayment(payment *SalaryPayment) (int64, error) {
+	if err := EnsureEnterpriseTablesExist(); err != nil {
+		return 0, err
+	}
+
+	// Set default status to pending
+	payment.Status = "pending"
+	payment.CreatedAt = time.Now().Unix()
+
+	result, err := DB.Exec(`
+		INSERT INTO salary_payments (
+			project_id, employee_name, employee_position,
+			amount, account_number, bank_name,
+			payment_purpose, document_url, status,
+			created_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`,
+		payment.ProjectID,
+		payment.EmployeeName,
+		payment.EmployeePosition,
+		payment.Amount,
+		payment.AccountNumber,
+		payment.BankName,
+		payment.PaymentPurpose,
+		payment.DocumentURL,
+		payment.Status,
+		payment.CreatedAt,
+	)
+	if err != nil {
+		return 0, err
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	return id, nil
+}
+
+// GetSalaryProjectPayments retrieves all payments for a specific salary project
+func GetSalaryProjectPayments(projectID int64) ([]SalaryPayment, error) {
+	if err := EnsureEnterpriseTablesExist(); err != nil {
+		return nil, err
+	}
+
+	query := `
+		SELECT 
+			id, project_id, employee_name, employee_position,
+			amount, account_number, bank_name,
+			payment_purpose, document_url, status,
+			created_at
+		FROM salary_payments
+		WHERE project_id = ?
+		ORDER BY created_at DESC
+	`
+
+	rows, err := DB.Query(query, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var payments []SalaryPayment
+	for rows.Next() {
+		var payment SalaryPayment
+		err := rows.Scan(
+			&payment.ID,
+			&payment.ProjectID,
+			&payment.EmployeeName,
+			&payment.EmployeePosition,
+			&payment.Amount,
+			&payment.AccountNumber,
+			&payment.BankName,
+			&payment.PaymentPurpose,
+			&payment.DocumentURL,
+			&payment.Status,
+			&payment.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		payments = append(payments, payment)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return payments, nil
+}
+
+// SaveMultipleSalaryPayments saves multiple salary payments to the database
+func SaveMultipleSalaryPayments(payments []*SalaryPayment) ([]int64, error) {
+	if err := EnsureEnterpriseTablesExist(); err != nil {
+		return nil, err
+	}
+
+	// Start a transaction
+	tx, err := DB.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	var paymentIDs []int64
+	for _, payment := range payments {
+		// Set default status to pending
+		payment.Status = "pending"
+		payment.CreatedAt = time.Now().Unix()
+
+		result, err := tx.Exec(`
+			INSERT INTO salary_payments (
+				project_id, employee_name, employee_position,
+				amount, account_number, bank_name,
+				payment_purpose, document_url, status,
+				created_at
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`,
+			payment.ProjectID,
+			payment.EmployeeName,
+			payment.EmployeePosition,
+			payment.Amount,
+			payment.AccountNumber,
+			payment.BankName,
+			payment.PaymentPurpose,
+			payment.DocumentURL,
+			payment.Status,
+			payment.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		id, err := result.LastInsertId()
+		if err != nil {
+			return nil, err
+		}
+		paymentIDs = append(paymentIDs, id)
+	}
+
+	// Commit the transaction
+	if err = tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	return paymentIDs, nil
 }

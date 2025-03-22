@@ -31,7 +31,7 @@ func EnsureLoansTableExists() error {
 			FOREIGN KEY (user_id) REFERENCES users(id)
 		)
 	`
-	if _, err := db.Exec(loansTableQuery); err != nil {
+	if _, err := DB.Exec(loansTableQuery); err != nil {
 		return err
 	}
 
@@ -46,7 +46,7 @@ func EnsureLoansTableExists() error {
 			FOREIGN KEY (loan_id) REFERENCES loans(id)
 		)
 	`
-	_, err := db.Exec(paymentsTableQuery)
+	_, err := DB.Exec(paymentsTableQuery)
 	return err
 }
 
@@ -131,7 +131,7 @@ func RequestLoan(request models.LoanRequest) (*models.Loan, error) {
 			total_payable, monthly_payment, status, created_at, updated_at
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
-	result, err := db.Exec(
+	result, err := DB.Exec(
 		query,
 		loan.UserID,
 		loan.Type,
@@ -189,7 +189,7 @@ func ApproveLoan(loanID int64, approverID int64) error {
 		SET status = ?, start_date = ?, end_date = ?, updated_at = ? 
 		WHERE id = ?
 	`
-	_, err = db.Exec(
+	_, err = DB.Exec(
 		query,
 		models.Approved,
 		startDate,
@@ -227,7 +227,7 @@ func RejectLoan(loanID int64, approverID int64) error {
 	// Update the loan status
 	now := time.Now()
 	query := `UPDATE loans SET status = ?, updated_at = ? WHERE id = ?`
-	_, err = db.Exec(query, models.Rejected, now, loanID)
+	_, err = DB.Exec(query, models.Rejected, now, loanID)
 	if err != nil {
 		return err
 	}
@@ -259,7 +259,7 @@ func ActivateLoan(loanID int64) error {
 	// Update the loan status
 	now := time.Now()
 	query := `UPDATE loans SET status = ?, updated_at = ? WHERE id = ?`
-	_, err = db.Exec(query, models.Active, now, loanID)
+	_, err = DB.Exec(query, models.Active, now, loanID)
 	if err != nil {
 		return err
 	}
@@ -294,7 +294,7 @@ func MakePayment(payment models.LoanPaymentRequest) (*models.Payment, error) {
 	}
 
 	// Start a transaction
-	tx, err := db.Begin()
+	tx, err := DB.Begin()
 	if err != nil {
 		return nil, err
 	}
@@ -379,7 +379,7 @@ func GetLoan(loanID int64) (*models.Loan, error) {
 	var startDate, endDate sql.NullTime
 	var status string
 
-	err := db.QueryRow(query, loanID).Scan(
+	err := DB.QueryRow(query, loanID).Scan(
 		&loan.ID,
 		&loan.UserID,
 		&loan.Type,
@@ -430,7 +430,7 @@ func GetUserLoans(userID int64) ([]*models.Loan, error) {
 		ORDER BY created_at DESC
 	`
 
-	rows, err := db.Query(query, userID)
+	rows, err := DB.Query(query, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -496,7 +496,7 @@ func GetLoanPayments(loanID int64) ([]*models.Payment, error) {
 		ORDER BY payment_date DESC
 	`
 
-	rows, err := db.Query(query, loanID)
+	rows, err := DB.Query(query, loanID)
 	if err != nil {
 		return nil, err
 	}
@@ -545,7 +545,7 @@ func GetPendingLoans() ([]*models.Loan, error) {
 		ORDER BY l.created_at DESC
 	`
 
-	rows, err := db.Query(query, models.Pending)
+	rows, err := DB.Query(query, models.Pending)
 	if err != nil {
 		return nil, err
 	}
@@ -627,7 +627,7 @@ func ManagerApproveLoan(loanID int64, managerID int64) error {
         SET status = ?, start_date = ?, end_date = ?, updated_at = ?, approved_by = ? 
         WHERE id = ?
     `
-	_, err = db.Exec(
+	_, err = DB.Exec(
 		query,
 		models.Approved,
 		startDate,
@@ -662,7 +662,7 @@ func ManagerRejectLoan(loanID int64, managerID int64, reason string) error {
 	// Update the loan status
 	now := time.Now()
 	query := `UPDATE loans SET status = ?, updated_at = ?, rejection_reason = ?, rejected_by = ? WHERE id = ?`
-	_, err = db.Exec(query, models.Rejected, now, reason, managerID, loanID)
+	_, err = DB.Exec(query, models.Rejected, now, reason, managerID, loanID)
 	if err != nil {
 		return err
 	}
@@ -690,7 +690,7 @@ func GetLoansByStatus(status models.LoanStatus) ([]*models.Loan, error) {
         ORDER BY l.created_at DESC
     `
 
-	rows, err := db.Query(query, status)
+	rows, err := DB.Query(query, status)
 	if err != nil {
 		return nil, err
 	}

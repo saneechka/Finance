@@ -6,10 +6,10 @@ import (
 	"os"
 	"path/filepath"
 
-	_"github.com/mattn/go-sqlite3" // SQLite3 driver
+	_ "github.com/mattn/go-sqlite3" // SQLite3 driver
 )
 
-var db *sql.DB
+var DB *sql.DB
 
 // InitDB initializes the database connection
 func InitDB() {
@@ -30,13 +30,13 @@ func InitDB() {
 
 	var err error
 	// Open SQLite database
-	db, err = sql.Open("sqlite3", dbPath)
+	DB, err = sql.Open("sqlite3", dbPath)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
 	// Verify the connection is working
-	if err = db.Ping(); err != nil {
+	if err = DB.Ping(); err != nil {
 		log.Fatalf("Failed to ping database: %v", err)
 	}
 
@@ -51,21 +51,22 @@ func InitDB() {
 		log.Fatalf("Failed to create deposits table: %v", err)
 	}
 
-	// Enable foreign keys
-	_, err = db.Exec("PRAGMA foreign_keys = ON;")
+	// Enable foreign key support
+	_, err = DB.Exec("PRAGMA foreign_keys = ON;")
 	if err != nil {
-		log.Printf("Warning: Failed to enable foreign keys: %v", err)
+		log.Fatalf("Failed to enable foreign key support: %v", err)
 	}
 }
 
-// GetDB returns the database connection
+// GetDB returns the database instance
 func GetDB() *sql.DB {
-	return db
+	return DB
 }
 
 // CloseDB closes the database connection
-func CloseDB() {
-	if db != nil {
-		db.Close()
+func CloseDB() error {
+	if DB != nil {
+		return DB.Close()
 	}
+	return nil
 }

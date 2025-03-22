@@ -44,7 +44,7 @@ func GetAllUsers(searchTerm string) ([]User, error) {
 
 	query += " ORDER BY id DESC"
 
-	rows, err := db.Query(query, args...)
+	rows, err := DB.Query(query, args...)
 	if err != nil {
 		return users, err
 	}
@@ -61,23 +61,18 @@ func GetAllUsers(searchTerm string) ([]User, error) {
 	return users, rows.Err()
 }
 
-
-
-
 // func NewGetUserTransactions(userID int64)(*User,error){
 // 	var new_user User
 // 	err:=db.QuerruRow(
-		
+
 // 	)
 // }
-
-
 
 // GetUserByID retrieves a user by their ID
 func GetUserByID(userID int) (*User, error) {
 	var user User
 
-	err := db.QueryRow(
+	err := DB.QueryRow(
 		"SELECT id, username, email, role FROM users WHERE id = ?",
 		userID,
 	).Scan(&user.ID, &user.Username, &user.Email, &user.Role)
@@ -113,9 +108,9 @@ func GetUserTransactions(userID int, limit int) ([]Transaction, error) {
 	var err error
 
 	if limit > 0 {
-		rows, err = db.Query(query, userID, limit)
+		rows, err = DB.Query(query, userID, limit)
 	} else {
-		rows, err = db.Query(query, userID)
+		rows, err = DB.Query(query, userID)
 	}
 
 	if err != nil {
@@ -155,7 +150,7 @@ func GetUserTransactions(userID int, limit int) ([]Transaction, error) {
 // CheckUserRole checks if a user has any of the specified roles
 func CheckUserRole(userID int, roles ...string) (bool, error) {
 	var role string
-	err := db.QueryRow("SELECT role FROM users WHERE id = ?", userID).Scan(&role)
+	err := DB.QueryRow("SELECT role FROM users WHERE id = ?", userID).Scan(&role)
 
 	if err != nil {
 		if err == sql.ErrNoRows {

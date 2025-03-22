@@ -20,7 +20,7 @@ func EnsureUserTableExists() error {
 			updated_at TIMESTAMP NOT NULL
 		)
 	`
-	_, err := db.Exec(createTableQuery)
+	_, err := DB.Exec(createTableQuery)
 	return err
 }
 
@@ -32,7 +32,7 @@ func SaveUser(user *models.User) error {
 	}
 
 	var count int
-	err := db.QueryRow("SELECT COUNT(*) FROM users WHERE username = ?", user.Username).Scan(&count)
+	err := DB.QueryRow("SELECT COUNT(*) FROM users WHERE username = ?", user.Username).Scan(&count)
 	if err != nil {
 		return err
 	}
@@ -51,13 +51,13 @@ func SaveUser(user *models.User) error {
 		VALUES (?, ?, ?, ?, ?, ?, ?)
 	`
 
-	result, err := db.Exec(
+	result, err := DB.Exec(
 		query,
 		user.Username,
 		user.Password,
 		user.Email,
 		user.Role,
-		boolToInt(user.Approved), 
+		boolToInt(user.Approved),
 		user.CreatedAt,
 		user.UpdatedAt,
 	)
@@ -76,7 +76,7 @@ func SaveUser(user *models.User) error {
 	return nil
 }
 
-//for future
+// for future
 func GetUserByUsername(username string) (*models.User, error) {
 	// Ensure user table exists
 	if err := EnsureUserTableExists(); err != nil {
@@ -90,7 +90,7 @@ func GetUserByUsername(username string) (*models.User, error) {
 		WHERE username = ?
 	`
 	var approved int
-	err := db.QueryRow(query, username).Scan(
+	err := DB.QueryRow(query, username).Scan(
 		&user.ID,
 		&user.Username,
 		&user.Password,
@@ -109,11 +109,10 @@ func GetUserByUsername(username string) (*models.User, error) {
 	return user, nil
 }
 
-
 // IsUserAdmin checks if a user has administrator privileges
 func IsUserAdmin(userID int) (bool, error) {
 	var role string
-	err := db.QueryRow("SELECT role FROM users WHERE id = ?", userID).Scan(&role)
+	err := DB.QueryRow("SELECT role FROM users WHERE id = ?", userID).Scan(&role)
 	if err != nil {
 		return false, err
 	}
@@ -124,14 +123,14 @@ func IsUserAdmin(userID int) (bool, error) {
 // ApproveUser approves a user by their ID
 func ApproveUser(userID int) error {
 	query := `UPDATE users SET approved = 1, updated_at = ? WHERE id = ?`
-	_, err := db.Exec(query, time.Now(), userID)
+	_, err := DB.Exec(query, time.Now(), userID)
 	return err
 }
 
 // RejectUser deletes a user by their ID (alternative to approval)
 func RejectUser(userID int) error {
 	query := `DELETE FROM users WHERE id = ?`
-	_, err := db.Exec(query, userID)
+	_, err := DB.Exec(query, userID)
 	return err
 }
 
@@ -146,7 +145,7 @@ func GetPendingUsers() ([]models.User, error) {
 		ORDER BY created_at DESC
 	`
 
-	rows, err := db.Query(query)
+	rows, err := DB.Query(query)
 	if err != nil {
 		return nil, err
 	}

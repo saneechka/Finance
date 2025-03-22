@@ -39,28 +39,18 @@ func main() {
 	r.GET("/loans", func(c *gin.Context) {
 		c.File(filepath.Join(staticPath, "loans.html"))
 	})
-
-	// Serve jsauthentication page
 	r.GET("/auth", func(c *gin.Context) {
 		c.File(filepath.Join(staticPath, "auth.html"))
 	})
-
-	// Serve admin page
 	r.GET("/admin", func(c *gin.Context) {
 		c.File(filepath.Join(staticPath, "admin.html"))
 	})
-
-	// Serve operator page
 	r.GET("/operator", func(c *gin.Context) {
 		c.File(filepath.Join(staticPath, "operator.html"))
 	})
-
-	// Serve manager page
 	r.GET("/manager", func(c *gin.Context) {
 		c.File(filepath.Join(staticPath, "manager.html"))
 	})
-
-	// Serve external specialist page
 	r.GET("/external", func(c *gin.Context) {
 		c.File(filepath.Join(staticPath, "external.html"))
 	})
