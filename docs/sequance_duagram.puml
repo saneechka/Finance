@@ -1,0 +1,163 @@
+@startuml Finance System Sequence Diagram
+
+' Стили
+skinparam ParticipantPadding 20
+skinparam BoxPadding 10
+skinparam SequenceGroupBodyBackgroundColor transparent
+
+actor "User" as user
+
+participant "AuthHandler" as auth
+participant "DepositHandler" as deposit
+participant "ExternalHandler" as external
+participant "AdminHandler" as admin
+database "UserDB" as userdb
+database "DepositDB" as depositdb
+database "EnterpriseDB" as enterprisedb
+queue "Cache" as cache
+
+' Аутентификация
+group Authentication
+    user -> frontend: Login request
+    frontend -> auth: POST /api/auth/login
+    auth -> userdb: GetUserByUsername()
+    auth -> cache: Set session
+    auth --> frontend: Return JWT token
+    frontend --> user: Login successful
+end
+
+' Работа с депозитами
+group Deposit Operations
+    user -> frontend: Create deposit
+    frontend -> deposit: POST /api/deposits
+    deposit -> depositdb: CreateDeposit()
+    deposit -> cache: Cache deposit data
+    deposit --> frontend: Return deposit info
+    frontend --> user: Deposit created
+
+    user -> frontend: Transfer funds
+    frontend -> deposit: POST /api/deposits/transfer
+    deposit -> depositdb: GetDepositByID()
+    deposit -> depositdb: CreateTransfer()
+    deposit -> cache: Update cache
+    deposit --> frontend: Transfer status
+    frontend --> user: Transfer complete
+end
+@startuml Finance System Sequence Diagram
+
+' ... existing code ...
+
+' Кредиты
+group Credit Operations
+    user -> frontend: Apply for credit
+    frontend -> credit: POST /api/credits/apply
+    credit -> creditdb: CreateCreditApplication()
+    credit -> userdb: GetUserCreditHistory()
+    credit -> credit: CalculateCreditScore()
+    
+    alt Credit Approved
+        credit -> creditdb: ApproveCreditApplication()
+        credit -> depositdb: CreateCreditAccount()
+        credit -> notification: SendApprovalNotification()
+        credit --> frontend: Credit approved
+        frontend --> user: Show approval status
+    else Credit Rejected
+        credit -> creditdb: RejectCreditApplication()
+        credit -> notification: SendRejectionNotification()
+        credit --> frontend: Credit rejected
+        frontend --> user: Show rejection reason
+    end
+
+    ' Выплаты по кредиту
+    user -> frontend: Make credit payment
+    frontend -> credit: POST /api/credits/payment
+    credit -> creditdb: ProcessPayment()
+    credit -> credit: CalculateInterest()
+    credit -> depositdb: UpdateBalance()
+    credit -> cache: UpdatePaymentCache
+    credit --> frontend: Payment processed
+    frontend --> user: Show payment confirmation
+end
+
+' Рассрочка
+group Installment Operations
+    user -> frontend: Request installment
+    frontend -> installment: POST /api/installments/new
+    installment -> merchantdb: VerifyMerchant()
+    installment -> userdb: CheckEligibility()
+    
+    alt Installment Approved
+        installment -> installmentdb: CreateInstallmentPlan()
+        installment -> merchantdb: NotifyMerchant()
+        installment -> notification: SendInstallmentApproval()
+        installment --> frontend: Installment approved
+        frontend --> user: Show installment terms
+    else Installment Rejected
+        installment -> installmentdb: LogRejection()
+        installment -> notification: SendRejectionNotice()
+        installment --> frontend: Installment rejected
+        frontend --> user: Show rejection details
+    end
+
+    ' Регулярные платежи по рассрочке
+    user -> frontend: Pay installment
+    frontend -> installment: POST /api/installments/payment
+    installment -> installmentdb: ProcessInstallmentPayment()
+    installment -> installment: UpdatePaymentSchedule()
+    installment -> cache: UpdateInstallmentCache
+    
+    alt Payment Successful
+        installment -> notification: SendPaymentConfirmation()
+        installment --> frontend: Payment successful
+        frontend --> user: Show payment status
+    else Payment Failed
+        installment -> notification: SendPaymentFailure()
+        installment --> frontend: Payment failed
+        frontend --> user: Show error message
+    end
+end
+
+' Мониторинг и отчетность
+group Credit Monitoring
+    admin -> frontend: View credit dashboard
+    frontend -> admin: GET /api/admin/credits/dashboard
+    admin -> creditdb: GetCreditStatistics()
+    admin -> installmentdb: GetInstallmentStatistics()
+    admin -> admin: GenerateRiskReport()
+    admin --> frontend: Dashboard data
+    frontend --> admin: Show statistics
+end
+
+@enduml
+' Зарплатный проект
+group Salary Project
+    user -> frontend: Create salary project
+    frontend -> external: POST /api/salary-projects
+    external -> enterprisedb: CreateSalaryProject()
+    external --> frontend: Project created
+    frontend --> user: Success
+
+    user -> frontend: Upload documents
+    frontend -> external: POST /api/salary-projects/documents
+    external -> enterprisedb: UpdateSalaryProject()
+    external --> frontend: Documents uploaded
+    frontend --> user: Success
+
+    user -> frontend: Submit for approval
+    frontend -> admin: POST /api/admin/salary-projects/approve
+    admin -> enterprisedb: UpdateProjectStatus()
+    admin -> enterprisedb: CreateSalaryPayment()
+    admin --> frontend: Project approved
+    frontend --> user: Success
+end
+
+' Обработка ошибок
+group Error Handling
+    user -> frontend: Invalid request
+    frontend -> deposit: POST /api/deposits
+    deposit -> deposit: Validate request
+    deposit --> frontend: Validation error
+    frontend --> user: Show error message
+end
+
+@enduml

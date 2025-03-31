@@ -1,0 +1,74 @@
+# Получение токена для external пользователя
+curl -X POST http://localhost:8082/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "externaluser",
+    "password": "secure_password"
+  }'
+
+# Создание зарплатного проекта
+curl -X POST http://localhost:8082/external/salary-project \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "enterprise_id": 1,
+    "enterprise_name": "Example Corporation",
+    "employee_count": 50,
+    "total_amount": 50000.00,
+    "document_url": "https://example.com/salary-doc.pdf",
+    "comment": "Monthly salary project for March 2024"
+  }'
+
+# Создание выплаты конкретному человеку
+curl -X POST http://localhost:8082/external/salary-project/5/payments \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "employee_name": "John Doe",
+    "employee_position": "Software Engineer",
+    "amount": 5000.00,
+    "account_number": "1234567890",
+    "bank_name": "Example Bank",
+    "payment_purpose": "Salary for March 2024",
+    "document_url": "https://example.com/employee-doc.pdf"
+  }'
+
+# Получение списка выплат по зарплатному проекту
+curl -X GET "http://localhost:8082/external/salary-project/5/payments" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+
+# Получение списка зарплатных проектов предприятия
+curl -X GET "http://localhost:8082/external/salary-projects?enterprise_id=1" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+
+# Получение токена для администратора
+curl -X POST http://localhost:8082/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "admin",
+    "password": "admin"
+  }'
+
+# Просмотр ожидающих подтверждения зарплатных проектов (для администратора)
+curl -X GET "http://localhost:8082/admin/external/pending-requests?type=salary_project" \
+  -H "Authorization: Bearer ADMIN_TOKEN"
+
+# Одобрение зарплатного проекта (для администратора)
+curl -X POST http://localhost:8082/admin/external/approve \
+  -H "Authorization: Bearer ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "request_type": "salary_project",
+    "request_id": 1,
+    "comment": "Approved after verification"
+  }'
+
+# Отклонение зарплатного проекта (для администратора)
+curl -X POST http://localhost:8082/admin/external/reject \
+  -H "Authorization: Bearer ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "request_type": "salary_project",
+    "request_id": 1,
+    "reason": "Invalid documentation provided"
+  }' 
