@@ -6,9 +6,10 @@ import (
 	"database/sql"
 	"errors"
 	"log"
-	// ... existing imports
-)
 
+	
+)
+// var ErrAccountNotFound = errors.New("account not found")
 // Add this error variable
 var ErrInsufficientFunds = errors.New("insufficient funds for transfer")
 
